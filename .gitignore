@@ -1,0 +1,16 @@
+*~
+*.o
+xboxdrv
+.sconsign.dblite
+usb.txt
+xpad.c
+xpad.h
+publish.sh
+usbcat
+macosx
+windows
+inputdrv
+old
+.sconf_temp/
+arg_parser_test
+config.log

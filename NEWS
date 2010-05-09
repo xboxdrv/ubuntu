@@ -1,0 +1,152 @@
+xboxdrv 0.4.12 - (08/Mai/2010)
+==============================
+
+* added --four-way-restrictor
+* added --dpad-rotation
+* added proper man pages for xboxdrv and xboxdrv-daemon
+
+
+xboxdrv 0.4.11 - (01/Mai/2010)
+==============================
+
+* added --axis-sensitivity
+* added number aliases for button names
+* added left/right/up/down aliases for dpad
+* some compiler warnings got cleaned up
+* confusing uinput error messages got cleaned up
+* fixed missing 'report sync' event that broke keyboard emulation
+
+
+xboxdrv 0.4.10 - (17/Feb/2010)
+==============================
+
+* fixed mouse emulation a bit, still somewhat broken
+* Mad Catz Xbox 360 controller support
+* Harmonix controller support
+* minor compile fix (missing string.h)
+
+
+xboxdrv 0.4.9 - (01/Nov/2009)
+=============================
+
+* Saitek P2500 support (no rumble, untested)
+* Hori Real Arcade Pro Ex support
+* changes in the thread handling to reduce latency
+* include fixes for g++-4.4
+
+
+xboxdrv 0.4.8 - (30/Jul/2009)
+=============================
+
+* usb reading in separate thread, should fix missed events and stuck buttons
+* some SCons configuration magic for better compatibility
+
+
+xboxdrv 0.4.7 - (29/Jul/2009)
+=============================
+
+* support for Pelican TSZ360 pad
+* support for Saitek P3200 pad
+* support for Thrustmaster Firestorm Dual Power (044f:b312)
+* deadzone support for trigger via --deadzone-trigger NUM
+* some documentation improvements
+
+
+xboxdrv 0.4.6 - (21/Feb/2009)
+=============================
+
+* --calibration AXIS=MIN,CENTER,MAX option to workaround broken controller
+* xboxdrv-daemon.py to launch xboxdrv automatically when device gets
+  plugged in
+
+
+xboxdrv 0.4.5 - (15/Feb/2009)
+=============================
+
+* fixed mixup between strong and weak rumble
+* added Harmonix Drum Kit for Xbox 360 support
+* added Logitech Chillstream support
+* added evsend tool to send events to /dev/input/eventX
+* Y-Axis for Firestorm gamepad fixed
+
+
+xboxdrv 0.4.4 - (24/Jan/2009)
+=============================
+
+* auto-detect USB endpoints
+* rumble support, enabled via --force-feedback
+* added --rumble-gain to control rumble strength
+* --deadzone accepts values in percentage
+* DDR Universe 2 Mat added
+
+
+xboxdrv 0.4.3 - (17/Jan/2009)
+=============================
+
+* added support for X11 keysym in --ui-buttonmap
+* added --ui-clear and 'void' mappings to unmap buttons and axis
+* fixed LED handling for wireless gamepads
+* Thrustmaster Firestorm Dual Power support (044f:b304)
+* added --name option to set device name
+* added JS_${NUM} name to address joystick buttons by number instead
+  of name
+* fixed issue with multiple wireless controller
+* some preparation for rumble (prints FF events)
+
+
+xboxdrv 0.4.2 - (11/Jan/2009)
+=============================
+
+* fixed --dpad-only
+
+
+xboxdrv 0.4.1 - (08/Jan/2009)
+=============================
+
+* workaround for KEY_MEDIA_REPEAT
+
+
+xboxdrv 0.4 - (07/Jan/2009)
+===========================
+
+* added --square-axis option
+* added --autofire option
+* added --relative-axis option (i.e. emulate joystick throttle)
+* added --ui-buttonmap and --ui-axismap to change uinput events
+* support for keyboard events
+* support for mouse emulation
+
+
+xboxdrv 0.3 - (06/Nov/2008)
+============================
+
+* added short note when the USB device is busy
+* added note to README about running it via sudo
+* added some missing header files
+* added new third party controller to the auto-detection
+* minor other small bug fixes
+
+
+xboxdrv 0.2 - (03/May/2008)
+===========================
+
+* added support for Xbox360 wireless gamepads
+* added support for the Xbox360 guitar controller
+* added --dpad-only option for apps that don't need analogsticks
+* added --axismap option to remap the axes
+* added --buttonmap option to remap the buttons
+* added option to specify the USB path to use, instead of using
+  automatic detection
+* added option to enforce the controller type
+* added deadzone configuration support
+* switched from usb_bulk_read() to usb_interrupt_read(), this fixes
+  problems with some controller
+
+
+xboxdrv 0.1 - (13/Apr/2008)
+===========================
+
+  * initial release
+
+
+# EOF #
