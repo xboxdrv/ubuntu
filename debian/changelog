@@ -1,3 +1,10 @@
+xboxdrv (0.4.12-4) lucid; urgency=low
+
+  * switched to git-buildpackage
+  * turned it back into a non-native package
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Fri, 09 May 2010 13:37:00 +0200
+
 xboxdrv (0.4.12-3) lucid; urgency=low
 
   * Updated to final 0.4.12 release
