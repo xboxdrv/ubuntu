@@ -1,3 +1,10 @@
+xboxdrv (0.4.13-1) lucid; urgency=low
+
+  * Updated to new upstream
+  * Switched to a simplified debian/rules
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Fri, 13 May 2010 18:34:00 +0200
+
 xboxdrv (0.4.12-4) lucid; urgency=low
 
   * switched to git-buildpackage
