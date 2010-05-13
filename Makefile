@@ -17,6 +17,7 @@
 DESTDIR = 
 PREFIX  = "/usr/local"
 DATADIR = "${PREFIX}/share/xboxdrv"
+MANDIR  = "${PREFIX}/share/man"
 BINDIR  = "${PREFIX}/bin"
 
 xboxdrv:
@@ -28,11 +29,15 @@ clean:
 	rm -f .sconsign.dblite
 	rm -f config.log
 
-install: install-exec
+install: install-exec install-man
 
 install-exec: xboxdrv
 	install -D xboxdrv "${DESTDIR}${BINDIR}/xboxdrv"
 
-.PHONY : clean install install-exec
+install-man:
+	install -D doc/xboxdrv-daemon.1 "${DESTDIR}${MANDIR}/man1/xboxdrv-daemon.1"
+	install -D doc/xboxdrv.1 "${DESTDIR}${MANDIR}/man1/xboxdrv.1"
+
+.PHONY : clean install install-exec install-man
 
 # EOF #
