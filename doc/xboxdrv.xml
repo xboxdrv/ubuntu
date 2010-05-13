@@ -11,8 +11,8 @@
       <application>xboxdrv</application>
     </refentrytitle>
     <manvolnum>1</manvolnum>
-    <refmiscinfo class="version">0.4.12</refmiscinfo>
-    <refmiscinfo class="author">0.4.12</refmiscinfo>
+    <refmiscinfo class="version">0.4.13</refmiscinfo>
+    <refmiscinfo class="author">0.4.13</refmiscinfo>
     <refmiscinfo class="manual">User Commands</refmiscinfo>
     <refmiscinfo class="source">xboxdrv</refmiscinfo>
   </refmeta>
@@ -145,6 +145,19 @@
           <listitem>
             <para>
               Causes xboxdrv to use the same axis and button names as the xpad kernel driver.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--no-extra-devices</option></term>
+          <listitem>
+            <para>
+              Normally xboxdrv will create an extra device for
+              keyboard emulation and mouse emulation when it detects a
+              button mapping that requires that. If this option is
+              set, it will not do that and instead dump all the
+              buttons into the joystick device.
             </para>
           </listitem>
         </varlistentry>
