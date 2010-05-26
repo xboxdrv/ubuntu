@@ -5,7 +5,7 @@
 \\$2 \(la\\$1\(ra\\$3
 ..
 .if \n(.g .mso www.tmac
-.TH "xboxdrv " 1 2010-05-05 0.4.13 "User Commands"
+.TH "xboxdrv " 1 2010-05-05 0.5.0 "User Commands"
 .SH NAME
 xboxdrv
 \- A Xbox/Xbox360 gamepad driver that works in userspace 
@@ -54,7 +54,10 @@ List supported devices (used by xboxdrv-daemon.py).
 List supported devices in \*(T<\fIxpad.c\fR\*(T> style.
 .TP 
 \*(T<\fB\-R\fR\*(T>, \*(T<\fB\-\-test\-rumble\fR\*(T>
-map rumbling to LT and RT (for testing only)
+Pressing LT will move the left rumble motor and pressing
+RT will move the right one. Rumble motor strength
+depends on how hard you press. This is useful for
+testing the rumble motors.
 .TP 
 \*(T<\fB\-\-no\-uinput\fR\*(T>
 Do not try to start uinput event dispatching, useful for debugging.
@@ -79,8 +82,8 @@ automatically.
 .TP 
 \*(T<\fB\-i\fR\*(T>, \*(T<\fB\-\-id\fR\*(T> \fIN\fR
 Use controller with id N (default: 0),
-use \*(T<\fB\-\-list\-controller\fR\*(T> to obtain a list of
-available controller.
+use \*(T<\fB\-\-list\-controller\fR\*(T> to obtain a list
+of available controller.
 .TP 
 \*(T<\fB\-w\fR\*(T>, \*(T<\fB\-\-wid\fR\*(T> \fIN\fR
 Use wireless controller with wid N (default: 0).
@@ -114,6 +117,8 @@ xbox360-guitar
 .TP 
 \*(T<\fB\-l\fR\*(T>, \*(T<\fB\-\-led\fR\*(T> \fINUM\fR
 Set LED status. Possible values for \fINUM\fR are:
+
+\fBLED Status Codes\fR
 .TS
 r l.
 T{
@@ -216,20 +221,24 @@ might also cause trouble in some games in that the character or camera
 might move without moving the stick. To fix this one has to set the
 value to something higher:
 
-\fB% xboxdrv --deadzone 4000\fR
+.nf
+\*(T<$ xboxdrv \-\-deadzone 4000\*(T>
+.fi
 
 A value of 4000 works quite well for most games.
 
 You can also give the deadzone in percentage:
 
-\fB% xboxdrv --deadzone 15%\fR
+.nf
+\*(T<$ xboxdrv \-\-deadzone 15%\*(T>
+.fi
 .TP 
 \*(T<\fB\-\-deadzone\-trigger \fR\*(T>\fINUM\fR
 The left and right trigger have a separate deadzone value which can be
 specified with:
 
 .nf
-\*(T<% xboxdrv \-\-deadzone\-trigger 15%  \*(T>
+\*(T<$ xboxdrv \-\-deadzone\-trigger 15%  \*(T>
 .fi
 .TP 
 \*(T<\fB\-\-trigger\-as\-button\fR\*(T>
@@ -250,13 +259,19 @@ additional analog axis.
 Button remapping is available via the \*(T<\fB\-\-buttonmap\fR\*(T> option. If you want
 to swap button A and B start with:
 
-\fB% xboxdrv --buttonmap A=B,B=A\fR
+.nf
+\*(T<$ xboxdrv \-\-buttonmap A=B,B=A\*(T>
+.fi
 
 If you want all face buttons send out A button events:
 
-\fB% xboxdrv --buttonmap B=A,X=A,Y=A\fR
+.nf
+\*(T<$ xboxdrv \-\-buttonmap B=A,X=A,Y=A\*(T>
+.fi
 
 Possible button names are (aliases are in parenthesis):
+
+\fBButton Names\fR
 .TS
 allbox ;
 l l.
@@ -320,13 +335,13 @@ mapping. In addition you can supply a sign to indicate that an axis
 should be inverted. So if you want to invert the y1 axis start with:
 
 .nf
-\*(T<% xboxdrv \-\-axismap \-Y1=Y1\*(T>
+\*(T<$ xboxdrv \-\-axismap \-Y1=Y1\*(T>
 .fi
 
 If you want to swap the left and right stick start with:
 
 .nf
-\*(T<% xboxdrv \-\-axismap X2=X1,Y2=Y1,X1=X2,Y1=Y2\*(T>
+\*(T<$ xboxdrv \-\-axismap X2=X1,Y2=Y1,X1=X2,Y1=Y2\*(T>
 .fi
 
 Possible axis names are: x1, y1, x2, y2, lt, rt
@@ -334,7 +349,19 @@ Possible axis names are: x1, y1, x2, y2, lt, rt
 Swaping lt or rt with x1, y1, x2, y2 will not work properly, since
 their range is different.
 .TP 
-\*(T<\fB\-\-ui\-buttonmap\fR\*(T> \fIBUTTON=UIBUTTONSPEC,...\fR
+\*(T<\fB\-\-ui\-buttonmap\fR\*(T> \fIUIBUTTONSPEC,...\fR
+.nf
+\*(T<UIBUTTONSPEC = XBOXBUTTON [ "+" XBOXBUTTON ] "=" ( RELSPEC | BTNSPEC ) ;
+RELSPEC      = [ DEVICEID "\-" ] "REL_" [ ":" [ VALUE ] [ ":" REPEAT ] ] ;
+BTNSPEC      = [ DEVICEID "\-" ] ( ( "BTN_" NAME ) | ( "KEY_" NAME ) ) { "+" BTNSPEC } ;
+XBOXBUTTON   = "a" | "b" | "x" | "y" | "lb" | "rb" | "lt" | "rt" | 
+               "tl" | "tr" | "start" | "select" | "back" | "guide" | "black" | "white" ;
+NAME         = STRING ;
+VALUE        = NUMBER ;
+REPEAT       = NUMBER ;
+DEVICEID     = NUMBER ;\*(T>
+.fi
+
 Allows you to change the event code that is send to the
 kernel for buttons. The usage is similar to the normal button
 mapping, except that the right hand side is an event name from
@@ -361,7 +388,7 @@ etc. macros the special name \fBJS_$NUM\fR, which sets the given button to
 the $NUMS joystick button, i.e.:
 
 .nf
-\*(T<% xboxdrv \-\-ui\-clear \-\-ui\-buttonmap A=JS_0,B=JS_1\*(T>
+\*(T<$ xboxdrv \-\-ui\-clear \-\-ui\-buttonmap A=JS_0,B=JS_1\*(T>
 .fi
 
 Note that this will only work if no other joystick
@@ -371,7 +398,7 @@ You can also map a button to a \fBREL_\fR
 event. In that case you can supply additional paramaters in the form of:
 
 .nf
-\*(T<% xboxdrv \-\-ui\-buttonmap X=REL_???:VALUE:REPEAT\*(T>
+\*(T<$ xboxdrv \-\-ui\-buttonmap X=REL_???:VALUE:REPEAT\*(T>
 .fi
 
 \fIVALUE\fR gives the value of the event (default: 10)
@@ -385,18 +412,76 @@ existing bindings for a given button, which can be
 useful in cases when a game only supports a limited
 number of buttons.
 
+You can also prepend a device_id to the UIBUTTONSPEC
+which allows you to create multiple uinput devices. By
+default 'auto' is assumed as device_id which
+automatically try to do the right thing, sending
+keyboard events to a keyboard device and mouse events to
+a mouse device. Other possible values are 'mouse' and
+\&'keyboard'. A device_id of '0' refers to the first
+joystick device, values larger then 0 to the second,
+third, etc. 
+
+Note that the 'mouse' and 'keyboard' device_id names do
+not give you a mouse or keyboard device, these are just
+symbolic names for the devices into which xboxdrv will
+sort events that look like a mouse or keyboard
+event. The final determination of which device gets
+handled as what will be done by the Kernel or Xorg
+depending on what events a device provides.
+
+An example configuration makeing use of device_id would look like this:
+
+.nf
+\*(T<xboxdrv \-s \e
+  \-\-ui\-clear \e
+  \-\-ui\-buttonmap A=0\-JS_0,B=0\-JS_1 \-\-ui\-axismap X2=1\-ABS_X,Y2=1\-ABS_Y
+  \-\-ui\-buttonmap X=1\-JS_0,Y=1\-JS_1 \-\-ui\-axismap X2=1\-ABS_X,Y2=1\-ABS_Y\*(T>
+.fi
+
+In this example the left stick creates a joystick device
+and the right stick creates a separate joystick device.
+
+Instead of giving just a single button, it is also
+possible to give two buttons
+to \*(T<\fB\-\-ui\-buttonmap\fR\*(T> to allow shifting:
+
+.nf
+\*(T<xboxdrv \-s \e
+  \-\-ui\-clear \e
+  \-\-ui\-buttonmap A=JS_0,B=JS_1,LB+A=JS_2,LB+B=JS_3\*(T>
+.fi
+
+In this example LB acts as shift button, if A is pressed
+without LB it will send out a JS_0 event, but if LB is
+pressed it will send a JS_2 event instead. This allows
+you to multiply the number of available buttons on the
+controller.
+
 See the section KEYBOARD EMULATION below on how to
 resolve issues with Xorg not detecting the virtual
 keyboard that xboxdrv creates.
 .TP 
-\*(T<\fB\-\-ui\-axismap\fR\*(T> \fIAXIS=UIAXISSPEC,...\fR
+\*(T<\fB\-\-ui\-axismap\fR\*(T> \fIUIAXISSPEC,...\fR
+.nf
+\*(T<UIAXISSPEC = XBOXAXIS "=" ( RELSPEC | BTNSPEC | ABSSPEC ) ;
+BTNSPEC    = "KEY_" NAME ":" "KEY_" NAME ":" THRESHOLD ;
+RELSPEC    = "REL_" NAME ":" VALUE ":" REPEAT ;
+ABSSPEC    = "ABS_" NAME ;
+XBOXAXIS   = "x1" | "y1" | "x2" | "y2" | "z" | "lt" | "rt" | "dpad_x" | "dpad_y" ;
+VALUE      = NUMBER ;
+REPEAT     = NUMBER ;
+THRESHOLD  = NUMBER ;
+NAME       = STRING ;\*(T>
+.fi
+
 Similar to \*(T<\fB\-\-ui\-buttonmap\fR\*(T> this option
 allows you to change the event code that is send to the
 kernel for axes. The events that are available are the
 same as for \*(T<\fB\-\-ui\-buttonmap\fR\*(T>.
 
 .nf
-\*(T<% xboxdrv \-\-ui\-axismap X1=REL_???:VALUE:REPEAT\*(T>
+\*(T<$ xboxdrv \-\-ui\-axismap X1=REL_???:VALUE:REPEAT\*(T>
 .fi
 
 \fIVALUE\fR gives the maximum value of the event (default: 10)
@@ -406,7 +491,7 @@ gives the number of milisecond to pass before the event
 is fired again (default: 5)
 
 .nf
-\*(T<% xboxdrv \-\-ui\-axismap X1=KEY_UP:KEY_DOWN:THRESHOLD\*(T>
+\*(T<$ xboxdrv \-\-ui\-axismap X1=KEY_UP:KEY_DOWN:THRESHOLD\*(T>
 .fi
 
 \fIKEY_UP\fR gives the keycode to be send when the axis is moved up
@@ -420,12 +505,29 @@ Removes all uinput mappings and will leave the driver in
 a blank state and only map those things you added
 yourself. If you only want to get rid of individual
 buttons you can use the 'void' event:
+.TP 
+\*(T<\fB\-m, \-\-mouse\fR\*(T>
+Lets the controller act as a mouse. It is indendical to:
 
 .nf
-\*(T<% xboxdrv \e
-  \-\-ui\-buttonmap tr=void,tl=void,lb=void,rb=void \e
-  \-\-ui\-axismap x2=void,y2=void,rt=void,lt=void,dpad_x=void,dpad_y=void\*(T>
+\*(T<$ xboxdrv \e
+  \-\-dpad\-as\-button
+  \-\-deadzone 4000
+  \-\-trigger\-as\-zaxis
+  \-\-axismap "\-y2=y2,\-trigger=trigger"
+  \-\-ui\-axismap "x1=REL_X:15:20,y1=REL_Y:15:20,y2=REL_WHEEL:5:100,x2=REL_HWHEEL:5:100,trigger=REL_WHEEL:5:100"
+  \-\-ui\-buttonmap "a=BTN_LEFT,b=BTN_RIGHT,x=BTN_MIDDLE,y=KEY_ENTER,rb=KEY_PAGEDOWN,lb=KEY_PAGEUP,"
+  \-\-ui\-buttonmap "dl=KEY_LEFT,dr=KEY_RIGHT,du=KEY_UP,dd=KEY_DOWN,"
+  \-\-ui\-buttonmap "start=KEY_FORWARD,back=KEY_BACK,guide=KEY_ESC,tl=void,tr=void"\*(T>
 .fi
+
+You can customize is by the usal means, just make sure
+that \*(T<\fB\-\-mouse\fR\*(T> comes before you
+customization options on the command line.
+
+Note that if you have your mouse buttons switched you must
+adjust the above to match your mouse configuration or the
+button events will come out wrong.
 .TP 
 \*(T<\fB\-\-name DEVNAME\fR\*(T>
 Changes the descriptive name the device will have
@@ -470,7 +572,9 @@ character instead of your viewpoint.
 \*(T<\fB\-\-axis\-sensitivty \fR\*(T>\fIAXIS=SENSITIVITY\fR,...
 The sensitive of an axis can be adjusted via --axis-sensitivty:
 
-\fB% xboxdrv --axis-sensitivty X1=-2.0,Y1=-2.0\fR
+.nf
+\*(T<$ xboxdrv \-\-axis\-sensitivty X1=\-2.0,Y1=\-2.0\*(T>
+.fi
 
 A value of 0 gives you the default linear sensitivity, values larger
 then 0 will give you heigher sensitivity, while values smaller then 0
@@ -496,24 +600,32 @@ for flightsim games.
 Since the axis might be upside down, you might want to use
 the \*(T<\fB\-\-axismap\fR\*(T> function to reverse it.
 
-\fB% xboxdrv --relative-axis y2=64000 --axismap -y2=y2\fR
+.nf
+\*(T<$ xboxdrv \-\-relative\-axis y2=64000 \-\-axismap \-y2=y2\*(T>
+.fi
 .TP 
 \*(T<\fB\-\-autofire BUTTON=FREQUENCY\fR\*(T>
 Autofire mapping allows you to let a button automatically fire with a
 given frequency in miliseconds:
 
-\fB% xboxdrv --autofire A=250\fR
+.nf
+\*(T<$ xboxdrv \-\-autofire A=250\*(T>
+.fi
 
 Combining \*(T<\fB\-\-autofire\fR\*(T> with button map allows you to have one button act
 as autofire while another one, emitting the same signal, acts normally.
 
-\fB% xboxdrv --autofire B=250 --buttonmap B=A\fR
+.nf
+\*(T<$ xboxdrv \-\-autofire B=250 \-\-buttonmap B=A\*(T>
+.fi
 .TP 
 \*(T<\fB\-\-calibration \fR\*(T>\fICALIBRATIONSPEC\fR
 If your gamepad for some reason can't reach the maximum value or isn't
 centered properly you can fix that via the calibration options:
 
-\fB% xboxdrv --calibration X2=-32768:0:32767\fR
+.nf
+\*(T<$ xboxdrv \-\-calibration X2=\-32768:0:32767\*(T>
+.fi
 
 X2 is the axis name and the three values that follow are min, center
 and max. Simply insert the values that jstest reports when your axis
@@ -522,7 +634,9 @@ is in the respective positions.
 You can also use the calibration option if you want to make your
 joystick more sensitive. A setting of:
 
-\fBxboxdrv --calibration AXIS=MIN:CENTER:MAX,...\fR
+.nf
+\*(T<xboxdrv \-\-calibration AXIS=MIN:CENTER:MAX,...\*(T>
+.fi
 
 Will cause the joystick device report maximum position when your
 stick is only moved half the way.
@@ -530,7 +644,9 @@ stick is only moved half the way.
 \*(T<\fB\-\-axis\-sensitivty \fR\*(T>\fIAXIS=SENSITIVITY\fR,...
 The sensitive of an axis can be adjusted via --axis-sensitivty:
 
-\fB% xboxdrv --axis-sensitivty X1=-2.0,Y1=-2.0\fR
+.nf
+\*(T<$ xboxdrv \-\-axis\-sensitivty X1=\-2.0,Y1=\-2.0\*(T>
+.fi
 
 A value of 0 gives you the default linear sensitivity, values larger
 then 0 will give you heigher sensitivity, while values smaller then 0
@@ -565,7 +681,7 @@ to get rid of.
 You can change the rumble strength via:
 
 .nf
-\*(T<% xboxdrv \-\-rumble\-gain 50%\*(T>
+\*(T<$ xboxdrv \-\-rumble\-gain 50%\*(T>
 .fi
 
 Values larger then 100% are possible as well.
@@ -573,23 +689,23 @@ Values larger then 100% are possible as well.
 Plug in your Xbox360 gamepad and then unload the xpad driver via:
 .PP
 .nf
-\*(T<% rmmod xpad\*(T>
+\*(T<$ rmmod xpad\*(T>
 .fi
-
+.PP
 If you want to permanently unload it add the following line to
 \*(T<\fI/etc/modprobe.d/blacklist.conf\fR\*(T>:
-
+.PP
 .nf
 \*(T<blacklist xpad\*(T>
 .fi
-
+.PP
 Next you have to load the uinput kernel module which allows userspace
 programms to create input devices and the joydev module which gives
 you the \*(T<\fI/dev/input/jsX\fR\*(T> device:
-
+.PP
 .nf
-\*(T<% modprobe uinput
-% modprobe joydev\*(T>
+\*(T<$ modprobe uinput
+$ modprobe joydev\*(T>
 .fi
 .PP
 You also have to make sure that you have access rights to
@@ -600,14 +716,14 @@ Once ensured that xpad is out of the way and everything is in place
 start the userspace driver with:
 .PP
 .nf
-\*(T<% ./xboxdrv\*(T>
+\*(T<$ xboxdrv\*(T>
 .fi
 .PP
 Or in case you don't have the neccesary rights (being in group root
 should often be enough) start the driver as root via:
 .PP
 .nf
-\*(T<% sudo ./xboxdrv\*(T>
+\*(T<$ sudo xboxdrv\*(T>
 .fi
 .PP
 This will create /dev/input/js0 and allow you to access the gamepad
@@ -616,7 +732,7 @@ If you have multiple wired controllers you need to start multiple instances
 of the xboxdrv driver and append the -i argument like this:
 .PP
 .nf
-\*(T<% ./xboxdrv \-i 1\*(T>
+\*(T<$ xboxdrv \-i 1\*(T>
 .fi
 .PP
 If you have multiple wireless controller you need to start multiple
@@ -624,7 +740,7 @@ instances of the xboxdrv driver and append the --wid argument like
 this:
 .PP
 .nf
-\*(T<% ./xboxdrv \-\-wid 1\*(T>
+\*(T<$ xboxdrv \-\-wid 1\*(T>
 .fi
 .PP
 You have to sync the wireless controller as usual.
@@ -633,14 +749,14 @@ This will then use the second detected controller, see to see which id
 your controller has:
 .PP
 .nf
-\*(T<% ./xboxdrv \-\-list\-controller\*(T>
+\*(T<$ xboxdrv \-\-list\-controller\*(T>
 .fi
 .PP
 When everything works as expected it is recomment that you run xboxdrv
 with the silent option:
 .PP
 .nf
-\*(T<% ./xboxdrv \-\-silent\*(T>
+\*(T<$ xboxdrv \-\-silent\*(T>
 .fi
 .PP
 This will suppress the logging of events to the console and will
@@ -650,7 +766,7 @@ If you want to abuse the led or rumble of the gamepad for notification
 in scripts you can do see via:
 .PP
 .nf
-\*(T<% ./xboxdrv \-\-led 10 \-\-rumble 30,30 \-\-quit\*(T>
+\*(T<$ xboxdrv \-\-led 10 \-\-rumble 30,30 \-\-quit\*(T>
 .fi
 .PP
 This will cause a mild rumble and the led to rotate, you can stop it
@@ -658,7 +774,7 @@ again via, which also happens to be the command you can use to stop
 your Xbox360 controller from blinking:
 .PP
 .nf
-\*(T<% ./xboxdrv \-\-\-led 0 \-\-rumble 0,0 \-\-quit\*(T>
+\*(T<$ xboxdrv \-\-\-led 0 \-\-rumble 0,0 \-\-quit\*(T>
 .fi
 .PP
 For rumble to work make sure you have connected the
@@ -694,7 +810,7 @@ environment variables.
 Currently available via:
 .PP
 .nf
-\*(T<% svn co svn://svn.berlios.de/windstille/trunk/sdl\-jstest\*(T>
+\*(T<$ svn co svn://svn.berlios.de/windstille/trunk/sdl\-jstest\*(T>
 .fi
 .SS XEV
 xev lets you see the events that Xorg sees. Note however that you
@@ -704,7 +820,7 @@ manager before they reach xev, this is normal.
 xev is part of every Linux distribution, on Ubuntu its available via:
 .PP
 .nf
-\*(T<% apt\-get install x11\-utils\*(T>
+\*(T<$ apt\-get install x11\-utils\*(T>
 .fi
 .SS JSCALC
 Do not use this tool, for current day joysticks it doesn't do
@@ -716,32 +832,13 @@ If the tools provide no output at all, this might not be due to a
 wrong configuration, but due to Xorg grabbing your event device and
 locking it, see Xorg section for possible fixes.
 .SH EXAMPLES
-.SS "MOUSE EMULATION"
-Mouse emulation can be done with something like this:
-.PP
-.nf
-\*(T<% ./xboxdrv \e
-   \-\-axismap \-y2=y2 \e
-   \-\-ui\-axismap x1=REL_X,y1=REL_Y,y2=REL_WHEEL:3:50 \e
-   \-\-ui\-buttonmap a=BTN_LEFT,b=BTN_RIGHT,x=BTN_MIDDLE,y=KEY_ENTER \e
-   \-\-ui\-buttonmap rb=KEY_FORWARD,lb=KEY_BACK \e
-   \-\-ui\-buttonmap dl=KEY_LEFT,dr=KEY_RIGHT,du=KEY_UP,dd=KEY_DOWN \e
-   \-s \-\-deadzone 5000  \-\-dpad\-as\-button\*(T>
-.fi
-.PP
-This will map the dpad to cursor keys, left analogstick to mouse
-cursor and right analogstick to mouse wheel.
-.PP
-Note that if you have your mouse buttons switched you must
-adjust the above to match your mouse configuration or the
-button events will come out wrong.
 .SS "KEYBOARD EMULATION"
 The following configuration works for games that are played with
 keyboard, like Flash games or games that don't support a joystick, you
 have to adjust the keybindings to fit the game:
 .PP
 .nf
-\*(T<% ./xboxdrv \e
+\*(T<$ xboxdrv \e
   \-\-ui\-clear \e
   \-\-dpad\-as\-button \e
   \-\-ui\-buttonmap a=XK_a,b=XK_b,x=XK_x,y=XK_y \e
@@ -751,7 +848,7 @@ have to adjust the keybindings to fit the game:
 Start \fBxboxdrv\fR with:
 .PP
 .nf
-\*(T<% xboxdrv \-\-trigger\-as\-button \-s \*(T>
+\*(T<$ xboxdrv \-\-trigger\-as\-button \-s \*(T>
 .fi
 .PP
 The triggers are not regonized in these games when they
@@ -764,7 +861,7 @@ attacks). Instead of using the native button names, the
 1,2,3,... aliases are used, which makes things easier to edit:
 .PP
 .nf
-\*(T<% xboxdrv \-\-dpad\-only \e
+\*(T<$ xboxdrv \-\-dpad\-only \e
   \-\-trigger\-as\-button  \e
   \-\-buttonmap lb=1,x=2,y=3,lt=4,a=5,b=6,rb=1,rb=2,rb=3,rt=4,rt=5,rt=6\*(T>
 .fi
@@ -779,7 +876,7 @@ joysticktype = ch\*(T>
 Start xboxdrv with:
 .PP
 .nf
-\*(T<% xboxdrv \-s \e
+\*(T<$ xboxdrv \-s \e
   \-\-trigger\-as\-zaxis \-\-square\-axis \e
   \-\-relative\-axis y2=64000 \-\-axismap \-y2=x2,x2=y2\*(T>
 .fi
@@ -793,7 +890,7 @@ incomplete example, not a perfectly playable configuration,
 you have to do tweaking yourself.
 .PP
 .nf
-\*(T<% ./xboxdrv \e
+\*(T<$ xboxdrv \e
   \-\-ui\-axismap x2=REL_X:10,y2=REL_Y:\-10,x1=KEY_LEFT:KEY_RIGHT,y1=KEY_UP:KEY_DOWN \e
   \-\-ui\-buttonmap a=BTN_RIGHT,b=BTN_LEFT,x=BTN_EXTRA \e
   \-\-ui\-buttonmap rb=KEY_5,lb=KEY_6,lt=BTN_LEFT,rt=BTN_RIGHT \e
@@ -805,7 +902,7 @@ Note: This is just an incomplete example, not a perfectly playable
 configuration, you have to do tweaking yourself.
 .PP
 .nf
-\*(T<% ./xboxdrv \e
+\*(T<$ xboxdrv \e
   \-\-ui\-axismap x2=REL_X:10,y2=REL_Y:\-10,x1=KEY_A:KEY_D,y1=KEY_W:KEY_S \e
   \-\-ui\-buttonmap a=KEY_LEFTSHIFT,b=BTN_C,x=BTN_EXTRA,y=KEY_C \e
   \-\-ui\-buttonmap lb=BTN_RIGHT,rb=KEY_SPACE \e
@@ -820,23 +917,24 @@ you have to set an environment variable:
 .PP
 .nf
 \*(T<
-% SDL_LINUX_JOYSTICK="'Xbox Gamepad (userspace driver)' 6 1 0"
-% export SDL_LINUX_JOYSTICK\*(T>
+$ SDL_LINUX_JOYSTICK="'Xbox Gamepad (userspace driver)' 6 1 0"
+$ export SDL_LINUX_JOYSTICK\*(T>
 .fi
 .PP
 You might also need in addition use this (depends on the way SDL was compiled):
 .PP
 .nf
 \*(T<
-% SDL_JOYSTICK_DEVICE="/dev/input/js0"
-% export SDL_JOYSTICK_DEVICE\*(T>
+$ SDL_JOYSTICK_DEVICE="/dev/input/js0"
+$ export SDL_JOYSTICK_DEVICE\*(T>
 .fi
-
-This will let the DPad act as Hat in SDL based application. For many
-games the driver will work without this, but especially in Dosbox this
-variable is very important.
-If you use options in xboxdrv that change the number of axis you have
-to adjust the variable accordingly, see:
+.PP
+This will let the DPad act as Hat in SDL based application. For
+many games the driver will work without this, but especially in
+Dosbox this variable is very important.
+.PP
+If you use options in xboxdrv that change the number of axis you
+have to adjust the variable accordingly, see:
 .TP 0.2i
 \(bu
 \(laftp://ptah.lnf.kth.se/pub/misc/sdl-env-vars\(ra
@@ -857,17 +955,15 @@ recognized by the driver. To fix this you need to know the idVendor
 and the idProduct numbers, which you can find out via:
 .PP
 .nf
-\*(T<% lsusb \-v\*(T>
+\*(T<$ lsusb \-v\*(T>
 .fi
 .PP
-Once done you can try to add them to the array:
+Once done you can try to add them to this array in \*(T<\fIxpad_device.cpp\fR\*(T>:
 .PP
 .nf
 \*(T<XPadDevice xpad_devices[] = { ... }\*(T>
 .fi
-
-in \*(T<\fIxpad_device.cpp\fR\*(T>.
-
+.PP
 If you have success with that, send a patch
 to <\*(T<grumbel@gmx.de\*(T>>, if not, contact me too, I
 might be able to provide additional help.
@@ -886,7 +982,7 @@ enginiering is required. Contact <\*(T<grumbel@gmx.de\*(T>> and include the outp
 of:
 .PP
 .nf
-\*(T<% lsusb \-v\*(T>
+\*(T<$ lsusb \-v\*(T>
 .fi
 .PP
 Along with all the "Unknown data" lines you get. 
@@ -899,7 +995,7 @@ tools/ subdirectory). Or in case you want just see if your driver is
 working correctly you can pass the -v option:
 .PP
 .nf
-\*(T<% ./xboxdrv \-v\*(T>
+\*(T<$ xboxdrv \-v\*(T>
 .fi
 .PP
 This will cause the driver to output all the events that it received
@@ -913,7 +1009,7 @@ Before reporting this as a bug make sure you have tested if the driver
 itself works with:
 .PP
 .nf
-\*(T<% ./xboxdrv \-\-no\-uinput \-v\*(T>
+\*(T<$ xboxdrv \-\-no\-uinput \-v\*(T>
 .fi
 .SS "THE WIRELESS CONTROLLER DOESN'T WORK"
 You have to sync the controller befor it can be used, restart of the
@@ -953,20 +1049,20 @@ is the recommont one.
 Get the device id from hal:
 .PP
 .nf
-\*(T<% hal\-find\-by\-property \-\-key 'info.product' \-\-string 'Xbox Gamepad (userspace driver)'\*(T>
+\*(T<$ hal\-find\-by\-property \-\-key 'info.product' \-\-string 'Xbox Gamepad (userspace driver)'\*(T>
 .fi
 .PP
 Then remove the device from hal with:
 .PP
 .nf
-\*(T<% hal\-device \-r $DEVICEID\*(T>
+\*(T<$ hal\-device \-r $DEVICEID\*(T>
 .fi
 .SS "TEMPORARY WORKAROUND USING XINPUT"
 Second workaround works with xinput:
 .PP
 .nf
-\*(T<% xinput list
- % xinput set\-int\-prop $DEVICEID 'Device Enabled' 32 0\*(T>
+\*(T<$ xinput list
+$ xinput set\-int\-prop $DEVICEID 'Device Enabled' 32 0\*(T>
 .fi
 .SS "PERMANENT WORKAROUND USING .FDI FILES"
 The former two workarounds are just temporary and have to be redone
@@ -1011,7 +1107,7 @@ A temporary workaround for this is to simply delete the joystick
 device js0 and replace it with a symbolic link js1 via:
 .PP
 .nf
-\*(T<% sudo ln \-sf /dev/input/js1 /dev/input/js0\*(T>
+\*(T<$ sudo ln \-sf /dev/input/js1 /dev/input/js0\*(T>
 .fi
 .PP
 This workaround will only last till the next reboot, since the device
@@ -1091,4 +1187,9 @@ License GPLv3+: GNU GPL version 3 or later
 are free to change and redistribute it. There is NO WARRANTY,
 to the extent permitted by law.
 .SH "SEE ALSO"
-xboxdrv-daemon(1), evtest(1), jstest(1), xev(1), fftest(1), lsusb(1)
+\fBxboxdrv-daemon\fR(1), 
+\fBevtest\fR(1), 
+\fBjstest\fR(1), 
+\fBxev\fR(1),
+\fBfftest\fR(1),
+\fBlsusb\fR(1)

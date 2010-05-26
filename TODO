@@ -3,58 +3,50 @@ Pre Release Testing:
 
 * check the version number
 
-VERSION="0.4.13"
+VERSION="$(cat VERSION)"
 TAG="v${VERSION}"
 git tag -s  "${TAG}" -m "xboxdrv ${TAG}" 
-
-# Debian
-git archive --format=tar --prefix="xboxdrv-${VERSION}-3/" ${TAG} | gzip -c > /tmp/xboxdrv_${VERSION}-3.orig.tar.gz
-
 
 # Normal Source
 git archive --format=tar --prefix="xboxdrv-linux-${VERSION}/" ${TAG} | bzip2 -c > /tmp/xboxdrv-linux-${VERSION}.tar.bz2
 
 git push --tags
 
-Stuff to do before 0.5 release:
+Stuff to do before 0.5.1 release:
 ===============================
+
+Docu
+====
+
+* docu on how to write a wrapper script needs to be moved to xboxdrv manpage
+
+* add a some general info to how xboxdrv works
+
+Packaging
+=========
 
 * split xboxdrv-daemon into a separate .deb package
 
-* version number needs to be centralized, its currently in the man
-  pages, in xboxdrv, in the TODO and in xboxdrv-daemon
+Cleanup
+=======
 
-* improve syncronization handling in uinput
+* improve output on which uinput devices are created
 
-* a mouse needs mouse buttons to be recognized as mouse:
+Feature
+=======
 
- --ui-buttonmap a=BTN_LEFT,b=BTN_RIGHT,x=BTN_MIDDLE,y=KEY_ENTER  
+* --extra_devices is broken (no longer implemented and somewhat tricky to reimplement)
 
-* mouse feels sluggish and jumpy, tweaking value and repeat makes the problem
-  smaller, but not go away (already solved by sync?!)
+* add --list-keys --list-x11-keys --list-axis --list-rel etc.
 
-  --ui-axismap x1=REL_X:10:20,y1=REL_Y:10:20,y2
-
-* src/xbox_controller.cpp:71: Make endpoint variable
-  http://ubuntuforums.org/showthread.php?p=7538167#post7538167
 
 * figure out a way to make userspace force feedback driver not become dead processes
 
-* add a --mimic-xpad option that behaves exactly like xpad
-
 * better keyboard emulation via analog sticks: axis must not be
   handled separately as this leads to issues with the diagonals (see
-  mail from Matthew G <matt@remort.org>)
+  mail from Matthew G <matt@remort.org>) (maybe relative axis can help?)
 
 * test TR:Anniversary with max effect 16
-
-* create dummy joystick, mouse and keyboard buttons so that the
-  devices always act as they should, also figure out the exakt minimum
-  requirements for each device (i.e. if a device is a
-  joystick/mouse/keyboard is determined if it as certain button or
-  axis).
-
-* add a way to not create a joystick/event device
 
 fixme:dinput:joy_polldev joystick cannot handle type 21 event (code 0) <- 21 == EV_FF (status report?) 
 

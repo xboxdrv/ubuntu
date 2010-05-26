@@ -19,124 +19,45 @@
 #ifndef HEADER_UINPUT_HPP
 #define HEADER_UINPUT_HPP
 
-#include <boost/tokenizer.hpp>
-#include <boost/lexical_cast.hpp>
 #include <vector>
+#include <map>
 #include <memory>
 #include <stdexcept>
+#include <boost/shared_ptr.hpp>
 
-#include "xpad_device.hpp"
-#include "xboxdrv.hpp"
-#include "linux_uinput.hpp"
+#include "axis_event.hpp"
+#include "button_event.hpp"
 #include "evdev_helper.hpp"
+#include "linux_uinput.hpp"
+#include "uinput_cfg.hpp"
+#include "xboxdrv.hpp"
+#include "xpad_device.hpp"
 
 class Xbox360Msg;
 class Xbox360GuitarMsg;
 class XboxMsg;
-
-struct ButtonEvent
-{
-  static ButtonEvent invalid() { return create(-1, -1); }
-  static ButtonEvent create(int type, int code);
-  static ButtonEvent from_string(const std::string& str);
-
-  /** EV_KEY, EV_ABS, EV_REL */
-  int type;
-
-  /** BTN_A, REL_X, ABS_X, ... */
-  int code;
-
-  union {
-    struct {
-      int  repeat;
-      int  value;
-    } rel;
-
-    struct {
-      int value;
-    } abs;
-
-    struct {
-    } key;
-  };
-};
-
-struct AxisEvent
-{
-  static AxisEvent invalid() { return create(-1, -1); }
-  static AxisEvent create(int type, int code, int fuzz = 0, int flat = 0);
-  static AxisEvent from_string(const std::string& str);
-
-  /** EV_KEY, EV_ABS, EV_REL */
-  int type;
-
-  /** BTN_A, REL_X, ABS_X, ... */
-  int code;
-
-  union {
-    struct {
-      int   repeat;
-      float value;
-    } rel;
-
-    struct {
-      int fuzz;
-      int flat;
-    } abs;
-
-    struct {
-      int secondary_code;
-      int threshold;
-    } key;
-  };
-};
-  
-class uInputCfg
-{
-public:
-  std::string device_name;
-  bool trigger_as_button;
-  bool dpad_as_button;
-  bool trigger_as_zaxis;
-  bool dpad_only;
-  bool force_feedback;
-  bool extra_devices;
-
-  ButtonEvent btn_map[XBOX_BTN_MAX];
-  AxisEvent   axis_map[XBOX_AXIS_MAX];
-
-  uInputCfg();
-
-  /** Sets a button/axis mapping that is equal to the xpad kernel driver */
-  void mimic_xpad();
-};
   
 class uInput
 {
 private:
-  std::auto_ptr<LinuxUinput> joystick_uinput_dev;
-  std::auto_ptr<LinuxUinput> keyboard_uinput_dev;
-  std::auto_ptr<LinuxUinput> mouse_uinput_dev;
+  XPadDevice m_dev;
+
+  typedef std::map<int, boost::shared_ptr<LinuxUinput> > uInputDevs;
+  uInputDevs uinput_devs;
   uInputCfg cfg;
 
   int  axis_state[XBOX_AXIS_MAX];
   bool button_state[XBOX_BTN_MAX];
 
-  struct RelAxisState {
-    int axis;
-    int time;
-    int next_time;
+  struct RelRepeat 
+  {
+    UIEvent code;
+    int value;
+    int time_count;
+    int repeat_interval;
   };
 
-  struct RelButtonState {
-    int button;
-    int time;
-    int next_time;
-  };
-
-  // rel_axis[XBOx_AXIS_??] = ...
-  std::vector<RelAxisState>   rel_axis;
-  std::vector<RelButtonState> rel_button;
+  std::map<UIEvent, RelRepeat> rel_repeat_lst;
 
 public:
   uInput(const XPadDevice& dev, uInputCfg cfg = uInputCfg());
@@ -157,22 +78,27 @@ private:
   void add_axis(int code, int min, int max);
   void add_button(int code);
 
-  void add_key(int ev_code);
-  void send_key(int ev_code, bool value);
-
   void send_button(int code, bool value);
   void send_axis(int code, int32_t value);
 
+public:
+  void add_rel(int device_id, int ev_code);
+  void add_abs(int device_id, int ev_code, int min, int max, int fuzz, int flat);
+  void add_key(int device_id, int ev_code);
+
+  void send_key(int device_id, int ev_code, bool value);
+  void send_rel_repetitive(const UIEvent& code, int value, int repeat_interval);
+
+  LinuxUinput* get_uinput(int device_id) const;
   LinuxUinput* get_mouse_uinput() const;
-  LinuxUinput* get_keyboard_uinput() const;
-  LinuxUinput* get_joystick_uinput() const;
+  LinuxUinput* get_force_feedback_uinput() const;
 
-  bool need_mouse_device();
-  bool need_keyboard_device();
-  bool need_joystick_device();
+public:
+  void create_uinput_device(int device_id);
 
-  bool is_mouse_button(int ev_code);
-  bool is_keyboard_button(int ev_code);
+public:
+  static bool is_mouse_button(int ev_code);
+  static bool is_keyboard_button(int ev_code);
 };
 
 #endif

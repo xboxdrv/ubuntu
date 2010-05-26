@@ -18,6 +18,13 @@ else:
                                   "-Winit-self", # only works with >= -O1
                                   "-Wno-unused-parameter",
                                   ])
+
+f = open("VERSION")
+package_version = f.read()
+f.close()
+    
+env.Append(CPPDEFINES={ 'PACKAGE_VERSION': "'\"%s\"'" % package_version})
+
 conf = Configure(env)
 
 if not conf.env['CXX']:
@@ -49,7 +56,12 @@ env = conf.Finish()
 env.Program('xboxdrv', ['src/xboxdrv.cpp', 
                         'src/xboxmsg.cpp',
                         'src/uinput.cpp',
+                        'src/uinput_deviceid.cpp',
+                        'src/uinput_cfg.cpp',
+                        'src/button_event.cpp',
+                        'src/axis_event.cpp',
                         'src/arg_parser.cpp',
+                        'src/button_map.cpp',
                         'src/pretty_printer.cpp',
                         'src/helper.cpp',
                         'src/modifier.cpp',
