@@ -23,63 +23,9 @@
 #include <sstream>
 #include <stdexcept>
 #include <map>
+
+#include "enum_box.hpp"
 #include "evdev_helper.hpp"
-
-template<class Enum>
-class EnumBox
-{
-protected:
-  std::string m_name;
-  std::map<Enum, std::string> m_enum2string;
-  std::map<std::string, Enum> m_string2enum;
-
-protected:
-  EnumBox(const std::string& name) :
-    m_name(name),
-    m_enum2string(),
-    m_string2enum()
-  {
-  }
-  
-  virtual ~EnumBox() {}
-
-  void add(Enum i, const std::string& name) 
-  {
-    m_enum2string[i] = name;
-    m_string2enum[name] = i;
-  }
-
-public:
-  Enum operator[](const std::string& str) const 
-  {
-    typename std::map<std::string, Enum>::const_iterator i = m_string2enum.find(str);
-    if (i == m_string2enum.end())
-      {
-        std::ostringstream out;
-        out << "Couldn't convert '" << str << "' to enum " << m_name << std::endl;
-        throw std::runtime_error(out.str());
-      }
-    else
-      {
-        return i->second;
-      }
-  }
-
-  std::string operator[](Enum v) const {
-    typename std::map<Enum, std::string>::const_iterator i = m_enum2string.find(v);
-    if (i == m_enum2string.end())
-      {
-        std::ostringstream out;
-        out << "Couldn't convert '" << v << "' to string" << std::endl;
-        throw std::runtime_error(out.str());
-      }
-    else
-      {
-        return i->second;
-      }
-  }
-};
-
 
 class EvDevRelEnum : public EnumBox<int>
 {
@@ -141,10 +87,10 @@ public:
   }
 } evdev_abs_names;
 
-class EvDevBtnEnum : public EnumBox<int>
+class EvDevKeyEnum : public EnumBox<int>
 {
 public:
-  EvDevBtnEnum() 
+  EvDevKeyEnum() 
     : EnumBox<int>("EV_KEY")
   {
     // File.new("/usr/include/linux/input.h")
@@ -585,7 +531,7 @@ public:
     add(KEY_BRL_DOT10,       "KEY_BRL_DOT10");
     add(KEY_MIN_INTERESTING, "KEY_MIN_INTERESTING");
   }
-} evdev_btn_names;
+} evdev_key_names;
 
 class Keysym2Keycode
 {
@@ -600,14 +546,14 @@ public:
 
     Display* dpy = XOpenDisplay(NULL);
     if (!dpy)
-      {
-        throw std::runtime_error("Keysym2Keycode: Couldn't open X11 display");
-      }
+    {
+      throw std::runtime_error("Keysym2Keycode: Couldn't open X11 display");
+    }
     else
-      {
-        process_keymap(dpy);
-        XCloseDisplay(dpy);
-      }
+    {
+      process_keymap(dpy);
+      XCloseDisplay(dpy);
+    }
   }
 
   void process_keymap(Display* dpy)
@@ -622,17 +568,17 @@ public:
                                          &keysyms_per_keycode);
 
     for(int i = 0; i < num_keycodes; ++i)
+    {
+      if (keymap[i*keysyms_per_keycode] != NoSymbol)
       {
-        if (keymap[i*keysyms_per_keycode] != NoSymbol)
-          {
-            KeySym keysym = keymap[i*keysyms_per_keycode];
-            // FIXME: Duplicate entries confuse the conversion
-            // std::map<KeySym, int>::iterator it = mapping.find(keysym);
-            // if (it != mapping.end())
-            //   std::cout << "Duplicate keycode: " << i << std::endl;
-            mapping[keysym] = i;
-          }
+        KeySym keysym = keymap[i*keysyms_per_keycode];
+        // FIXME: Duplicate entries confuse the conversion
+        // std::map<KeySym, int>::iterator it = mapping.find(keysym);
+        // if (it != mapping.end())
+        //   std::cout << "Duplicate keycode: " << i << std::endl;
+        mapping[keysym] = i;
       }
+    }
 
     XFree(keymap);
   }
@@ -645,83 +591,142 @@ int xkeysym2keycode(const std::string& name)
   KeySym keysym = XStringToKeysym(name.substr(3).c_str());
 
   if (keysym == NoSymbol)
-    {
-      throw std::runtime_error("xkeysym2keycode: Couldn't convert name '" + name + "' to xkeysym");
-    }
+  {
+    throw std::runtime_error("xkeysym2keycode: Couldn't convert name '" + name + "' to xkeysym");
+  }
 
   std::map<KeySym, int>::iterator i = sym2code.mapping.find(keysym);
   if (i == sym2code.mapping.end())
-    {
-      throw std::runtime_error("xkeysym2keycode: Couldn't convert xkeysym '" + name + "' to evdev keycode");
-    }
+  {
+    throw std::runtime_error("xkeysym2keycode: Couldn't convert xkeysym '" + name + "' to evdev keycode");
+  }
   else
-    {
-      if (0)
-        std::cout << name << " -> " << keysym << " -> " << XKeysymToString(keysym) 
-                  << " -> " << btn2str(i->second) << "(" << i->second << ")" << std::endl;
-      return i->second;
-    }
+  {
+    //std::cout << name << " -> " << keysym << " -> " << XKeysymToString(keysym) 
+    //          << " -> " << key2str(i->second) << "(" << i->second << ")" << std::endl;
+    return i->second;
+  }
 }
 
-bool str2event(const std::string& name, int& type, int& code)
+void str2event(const std::string& name, int& type, int& code)
 {
   if (name == "void" || name == "none")
-    {
-      type = -1;
-      code = -1;
-      return true;
-    }
+  {
+    type = -1;
+    code = -1;
+  }
   else if (name.compare(0, 3, "REL") == 0)
-    {
-      type = EV_REL;
-      code = evdev_rel_names[name];
-      return true;
-    }
+  {
+    type = EV_REL;
+    code = evdev_rel_names[name];
+  }
   else if (name.compare(0, 3, "ABS") == 0)
-    {
-      type = EV_ABS;
-      code = evdev_abs_names[name];
-      return true;
-    }
+  {
+    type = EV_ABS;
+    code = evdev_abs_names[name];
+  }
   else if (name.compare(0, 2, "XK") == 0)
-    {
-      type = EV_KEY;
-      code = xkeysym2keycode(name);
-      return true;      
-    }
+  {
+    type = EV_KEY;
+    code = xkeysym2keycode(name);
+  }
   else if (name.compare(0, 2, "JS") == 0)
-    {
-      type = EV_KEY;
-      code = BTN_JOYSTICK + boost::lexical_cast<int>(name.substr(3));
-      return true;
-    }
+  {
+    type = EV_KEY;
+    code = BTN_JOYSTICK + boost::lexical_cast<int>(name.substr(3));
+  }
   else if (name.compare(0, 3, "KEY") == 0 ||
            name.compare(0, 3, "BTN") == 0)
-    {
-      type = EV_KEY;
-      code = evdev_btn_names[name];
-      return true;
-    }
+  {
+    type = EV_KEY;
+    code = evdev_key_names[name];
+  }
   else
-    {
-      return false;
-    }
+  {
+    throw std::runtime_error("str2event(): unknown event type prefix: " + name);
+  }
 }
 
-std::string btn2str(int i)
+int get_event_type(const std::string& name)
 {
-  return evdev_btn_names[i];
+  if (name == "void" || name == "none")
+  {
+    return -1;
+  }
+  else if (name.compare(0, 3, "REL") == 0)
+  {
+    return EV_REL;
+  }
+  else if (name.compare(0, 3, "ABS") == 0)
+  {
+    return EV_ABS;
+  }
+  else if (name.compare(0, 3, "KEY") == 0 ||
+           name.compare(0, 3, "BTN") == 0 ||
+           name.compare(0, 2, "JS")  == 0 ||
+           name.compare(0, 2, "XK")  == 0)
+  {
+    return EV_KEY;
+  }
+  else
+  {
+    throw std::runtime_error("str2event(): unknown event type prefix: " + name);
+  }
 }
 
-std::string abs2str(int i)
+int str2abs(const std::string& name)
 {
-  return evdev_abs_names[i];
+  return evdev_abs_names[name];
 }
 
-std::string rel2str(int i)
+int str2key(const std::string& name)
 {
-  return evdev_rel_names[i];
+  if (name.compare(0, 2, "XK") == 0)
+  {
+    return xkeysym2keycode(name);
+  }
+  else if (name.compare(0, 2, "JS") == 0)
+  {
+    return BTN_JOYSTICK + boost::lexical_cast<int>(name.substr(3));
+  }
+  else if (name.compare(0, 3, "KEY") == 0 ||
+           name.compare(0, 3, "BTN") == 0)
+  {
+    return evdev_key_names[name];
+  }
+  else
+  {
+    throw std::runtime_error("str2abs: couldn't convert string: " + name);
+  }
+}
+
+int str2rel(const std::string& name)
+{
+  return evdev_rel_names[name];
+}
+
+UIEvent str2key_event(const std::string& str)
+{
+  int device_id;
+  std::string rest;
+  split_event_name(str, &rest, &device_id);
+  return UIEvent::create(device_id, EV_KEY, str2key(rest));
+}
+
+UIEvent str2rel_event(const std::string& str)
+{
+  int device_id;
+  std::string rest;
+  split_event_name(str, &rest, &device_id);
+  return UIEvent::create(device_id, EV_REL, str2rel(rest));
+}
+
+UIEvent str2abs_event(const std::string& str)
+{
+  int device_id;
+  std::string rest;
+  split_event_name(str, &rest, &device_id);
+  return UIEvent::create(device_id, EV_ABS, str2abs(rest));
 }
 
 /* EOF */
-

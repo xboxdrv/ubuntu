@@ -1,0 +1,10 @@
+e9f8d7009db5e9e15328f6619cbf781e  usr/share/man/man1/xboxdrv-daemon.1.gz
+1dec52f96e1112f55b14a6ac46087850  usr/share/man/man1/xboxdrv.1.gz
+55e11c57ec61eaa68ec4328c6504805a  usr/share/doc/xboxdrv/AUTHORS
+47c735a0ea1f06ec3051dba171f78440  usr/share/doc/xboxdrv/README
+c793086e1ca9d0536547317734f29e51  usr/share/doc/xboxdrv/copyright
+92d082e1f59e824ea8154125dc5b3b71  usr/share/doc/xboxdrv/TODO.gz
+97e4c62da2d268edf130b9fb4c7d42d9  usr/share/doc/xboxdrv/PROTOCOL.gz
+ace7267de8088ceb8a99b4e245c81aaf  usr/share/doc/xboxdrv/changelog.Debian.gz
+af135476b6152033eee73a1477164d10  usr/share/doc/xboxdrv/NEWS.gz
+da94e3c661a57f19f2fd52bb63fb84ea  usr/bin/xboxdrv
