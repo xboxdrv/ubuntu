@@ -1,3 +1,9 @@
+xboxdrv (0.5.0-1) lucid; urgency=low
+
+  * Updated to new upstream
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Fri, 26 May 2010 21:12:00 +0200
+
 xboxdrv (0.4.13-1) lucid; urgency=low
 
   * Updated to new upstream
