@@ -33,14 +33,15 @@
 #include "xboxdrv.hpp"
 #include "xpad_device.hpp"
 
-class Xbox360Msg;
-class Xbox360GuitarMsg;
-class XboxMsg;
+struct Xbox360Msg;
+struct XboxMsg;
+struct Xbox360GuitarMsg;
   
 class uInput
 {
 private:
-  XPadDevice m_dev;
+  int m_vendor_id;
+  int m_product_id;
 
   typedef std::map<int, boost::shared_ptr<LinuxUinput> > uInputDevs;
   uInputDevs uinput_devs;
@@ -60,12 +61,28 @@ private:
   std::map<UIEvent, RelRepeat> rel_repeat_lst;
 
 public:
-  uInput(const XPadDevice& dev, uInputCfg cfg = uInputCfg());
+  static bool is_mouse_button(int ev_code);
+  static bool is_keyboard_button(int ev_code);
+
+public:
+  uInput(GamepadType type, int vendor_id, int product_id, uInputCfg cfg = uInputCfg());
   ~uInput();
 
   void send(XboxGenericMsg& msg); 
   void update(int msec_delta);
   void set_ff_callback(const boost::function<void (uint8_t, uint8_t)>& callback);
+
+  void add_rel(int device_id, int ev_code);
+  void add_abs(int device_id, int ev_code, int min, int max, int fuzz, int flat);
+  void add_key(int device_id, int ev_code);
+
+  void send_key(int device_id, int ev_code, bool value);
+  void send_rel_repetitive(const UIEvent& code, int value, int repeat_interval);
+
+  LinuxUinput* get_uinput(int device_id) const;
+  LinuxUinput* get_force_feedback_uinput() const;
+
+  void create_uinput_device(int device_id);
 
 private:
   void setup_xbox360_gamepad(GamepadType type);
@@ -75,30 +92,13 @@ private:
   void send(Xbox360GuitarMsg& msg);
   void send(XboxMsg& msg);
 
-  void add_axis(int code, int min, int max);
-  void add_button(int code);
+  void add_axis(XboxAxis code);
+  void add_button(XboxButton code);
 
-  void send_button(int code, bool value);
-  void send_axis(int code, int32_t value);
+  void send_button(XboxButton code, bool value);
+  void send_axis(XboxAxis code, int32_t value);
 
-public:
-  void add_rel(int device_id, int ev_code);
-  void add_abs(int device_id, int ev_code, int min, int max, int fuzz, int flat);
-  void add_key(int device_id, int ev_code);
-
-  void send_key(int device_id, int ev_code, bool value);
-  void send_rel_repetitive(const UIEvent& code, int value, int repeat_interval);
-
-  LinuxUinput* get_uinput(int device_id) const;
-  LinuxUinput* get_mouse_uinput() const;
-  LinuxUinput* get_force_feedback_uinput() const;
-
-public:
-  void create_uinput_device(int device_id);
-
-public:
-  static bool is_mouse_button(int ev_code);
-  static bool is_keyboard_button(int ev_code);
+  void reset_all_outputs();
 };
 
 #endif

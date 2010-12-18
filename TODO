@@ -1,4 +1,4 @@
-Pre Release Testing:
+angrPre Release Testing:
 ====================
 
 * check the version number
@@ -12,15 +12,93 @@ git archive --format=tar --prefix="xboxdrv-linux-${VERSION}/" ${TAG} | bzip2 -c 
 
 git push --tags
 
-Stuff to do before 0.5.1 release:
-===============================
+Stuff to do before 0.6.1 release:
+=================================
 
-Docu
-====
+* add extra checks to make sure the evdev buttons and axis given exist on the current device
 
-* docu on how to write a wrapper script needs to be moved to xboxdrv manpage
+* add support for Xbox1 analog face button
 
-* add a some general info to how xboxdrv works
+* support for Playstation button names maybe? cross, triangle, circle, square, R3, L3, ...?
+
+* unifiy guitar mappings
+
+* allow separate deadzone for each axis
+
+* make dummy joystick axis creation optional
+
+* make evdev grab optional:
+
+  --evdev-grab
+
+    Takes exclusive ownership of the event device, all events are
+    directed to xboxdrv and no other application will be able to
+    receive events.
+
+  --evdev-no-grab
+
+* --ui-axismap LT=KEY_A:KEY_B:1 
+
+Here KEY_B is the key you want to send and KEY_A is a random other key
+that you don't need. It's a hack as mapping both to KEY_B seems to
+cause some trouble with automatic key repeat for some reason. Note
+that you must not combine this with --trigger-as-zaxis as that will
+disable LT and RT
+
+* allow binding of scripts to a button
+
+* invert y axis on --evdev
+
+* allow --type to work even when --device-by-id is not given
+
+* axis emulation
+
+  --ui-axisemulation A:B=ABS_X:5
+
+* rewrite to use no floats:
+
+scale_deadzone(int16_t value, const int deadzone)
+scale_trigger_deadzone(uint8_t value, int deadzone)
+
+* endpoints can be taken directly from the usb configuration, thus
+  avoiding issues with nummeric endpoints
+
+* bcdDevice (product release version) seem to indicate type (to many
+  possible versions, not enough data):
+
+new controller with merged endpoints: bcdDevice: 0x0114
+old ones: 1.10
+
+better way then to check for endpoints maybe
+
+* 045e:028f is the play&charge kit, give an error message when somebody tries to use that
+
+* match by protocol not, just vendor/product, from xpad.c:
+
+/* Xbox 360 has a vendor-specific class, so we cannot match it with only
+ * USB_INTERFACE_INFO (also specifically refused by USB subsystem), so we
+ * match against vendor id as well. Wired Xbox 360 devices have protocol 1,
+ * wireless controllers have protocol 129. */
+#define XPAD_XBOX360_VENDOR_PROTOCOL(vend,pr) \
+        .match_flags = USB_DEVICE_ID_MATCH_VENDOR | USB_DEVICE_ID_MATCH_INT_INFO, \
+        .idVendor = (vend), \
+        .bInterfaceClass = USB_CLASS_VENDOR_SPEC, \
+        .bInterfaceSubClass = 93, \
+        .bInterfaceProtocol = (pr)
+#define XPAD_XBOX360_VENDOR(vend) \
+        { XPAD_XBOX360_VENDOR_PROTOCOL(vend,1) }, \
+        { XPAD_XBOX360_VENDOR_PROTOCOL(vend,129) }
+
+* --ui-new must reset events to neutral when switching input mapping (done, but a hack)
+
+* --ui-axismap doesn't work when same key name is given twice, either give warning or fix the issue:
+
+  --ui-axismap LT=KEY_A:KEY_A:1
+
+* in INI files allow:
+
+  [xboxdrv]
+  ui-buttonmap = A=BTN_A,B=BTN_B,...
 
 Packaging
 =========
@@ -35,10 +113,7 @@ Cleanup
 Feature
 =======
 
-* --extra_devices is broken (no longer implemented and somewhat tricky to reimplement)
-
-* add --list-keys --list-x11-keys --list-axis --list-rel etc.
-
+* add --list-keys --list-x11-keys --list-abs --list-rel --list-button --list-axis etc.
 
 * figure out a way to make userspace force feedback driver not become dead processes
 
@@ -47,6 +122,24 @@ Feature
   mail from Matthew G <matt@remort.org>) (maybe relative axis can help?)
 
 * test TR:Anniversary with max effect 16
+
+Stuff to do before 0.6.0 release:
+=================================
+
+* add Playstation3 controller config to examples, convert to ini (done)
+  needs new config for bluetooth mode
+
+ ./xboxdrv  \
+  --evdev /dev/input/event6 \
+  --evdev-absmap ABS_X=x1,ABS_Y=y1 \
+  --evdev-absmap ABS_Z=x2,ABS_RZ=y2 \
+  --evdev-absmap ABS_#48=lt,ABS_#49=rt \
+  --evdev-keymap BTN_THUMB=tl,BTN_THUMB2=tr \
+  --evdev-keymap BTN_BASE5=lb,BTN_BASE6=rb  \
+  --evdev-keymap KEY_#302=a,KEY_#301=b,BTN_DEAD=x,KEY_#300=y \
+  --evdev-keymap BTN_TRIGGER=back,KEY_#720=guide,BTN_TOP=start \
+  --evdev-keymap BTN_TOP2=du,BTN_PINKIE=dr,BTN_BASE=dd,BTN_BASE2=dl
+
 
 fixme:dinput:joy_polldev joystick cannot handle type 21 event (code 0) <- 21 == EV_FF (status report?) 
 
@@ -55,6 +148,8 @@ http://msdn.microsoft.com/en-us/library/bb219655(VS.85).aspx
 
 Later versions:
 ===============
+
+* complex macro programming, i.e. complete evdev sequences, not just key combinations
 
 * The World Tour wireless guitar have 5 buttons and a
   slide. Currently, the slide is mapped to the x axis, but I don't

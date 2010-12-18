@@ -27,6 +27,7 @@ enum GamepadType {
   GAMEPAD_XBOX_MAT,
   GAMEPAD_XBOX360,
   GAMEPAD_XBOX360_WIRELESS,
+  GAMEPAD_XBOX360_PLAY_N_CHARGE,
   GAMEPAD_XBOX360_GUITAR,
   GAMEPAD_FIRESTORM,
   GAMEPAD_FIRESTORM_VSB,
@@ -244,7 +245,7 @@ enum XboxAxis {
 };
 
 int  get_button(XboxGenericMsg& msg, XboxButton button);
-void set_button(XboxGenericMsg& msg, XboxButton button, int v);
+void set_button(XboxGenericMsg& msg, XboxButton button, bool v);
 int  get_axis(XboxGenericMsg& msg, XboxAxis axis);
 void set_axis(XboxGenericMsg& msg, XboxAxis axis, int v);
 float get_axis_float(XboxGenericMsg& msg, XboxAxis axis);
@@ -254,6 +255,9 @@ XboxButton string2btn(const std::string& str_);
 XboxAxis   string2axis(const std::string& str_);
 std::string btn2string(XboxButton btn);
 std::string axis2string(XboxAxis axis);
+
+int get_axis_min(XboxAxis axis);
+int get_axis_max(XboxAxis axis);
 
 std::string gamepadtype_to_string(const GamepadType& type);
 std::string gamepadtype_to_macro_string(const GamepadType& type);

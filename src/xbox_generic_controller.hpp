@@ -21,6 +21,8 @@
 
 #include <stdint.h>
 
+struct XboxGenericMsg;
+
 class XboxGenericController
 {
 private:
@@ -31,7 +33,10 @@ public:
   virtual void set_rumble(uint8_t left, uint8_t right) =0;
   virtual void set_led(uint8_t status)   =0;
 
-  /** @param timeout   timeout in msec, 0 means forever */
+  /**
+     @param timeout   timeout in msec, 0 means forever 
+     @return true if something was read, false otherwise
+   */  
   virtual bool read(XboxGenericMsg& msg, bool verbose, int timeout) =0;
 
 private:

@@ -24,17 +24,17 @@
 #include <vector>
 #include "xboxmsg.hpp"
 
-class CommandLineOptions;
+class Options;
 
 struct ButtonMapping {
-  static ButtonMapping from_string(const std::string& str);
+  static ButtonMapping from_string(const std::string& lhs, const std::string& rhs);
 
   XboxButton lhs;
   XboxButton rhs;
 };
 
 struct AxisMapping {
-  static AxisMapping from_string(const std::string& str);
+  static AxisMapping from_string(const std::string& lhs, const std::string& rhs);
 
   XboxAxis lhs;
   XboxAxis rhs;
@@ -42,21 +42,21 @@ struct AxisMapping {
 };
 
 struct AutoFireMapping {
-  static AutoFireMapping from_string(const std::string&);
+  static AutoFireMapping from_string(const std::string& lhs, const std::string& rhs);
 
   XboxButton button;
   int        frequency;
 };
 
 struct RelativeAxisMapping {
-  static RelativeAxisMapping from_string(const std::string&);
+  static RelativeAxisMapping from_string(const std::string& lhs, const std::string& rhs);
 
   XboxAxis axis;
   int      speed;
 };
 
 struct CalibrationMapping {
-  static CalibrationMapping from_string(const std::string&);
+  static CalibrationMapping from_string(const std::string& lhs, const std::string& rhs);
 
   XboxAxis axis;
   int min;
@@ -65,7 +65,7 @@ struct CalibrationMapping {
 };
 
 struct AxisSensitivityMapping {
-  static AxisSensitivityMapping from_string(const std::string&);
+  static AxisSensitivityMapping from_string(const std::string& lhs, const std::string& rhs);
 
   XboxAxis axis;
   float sensitivity;
@@ -161,11 +161,11 @@ public:
 void apply_button_map(XboxGenericMsg& msg, const std::vector<ButtonMapping>& lst);
 void apply_axis_map(XboxGenericMsg& msg, const std::vector<AxisMapping>& lst);
 void apply_calibration_map(XboxGenericMsg& msg, const std::vector<CalibrationMapping>& lst);
-void apply_deadzone(XboxGenericMsg& msg, const CommandLineOptions& opts);
+void apply_deadzone(XboxGenericMsg& msg, const Options& opts);
 void apply_square_axis(XboxGenericMsg& msg);
-void apply_axis_sensitivity(XboxGenericMsg& msg, const CommandLineOptions& opts);
-void apply_four_way_restrictor(XboxGenericMsg& msg, const CommandLineOptions& opts);
-void apply_dpad_rotator(XboxGenericMsg& msg, const CommandLineOptions& opts);
+void apply_axis_sensitivity(XboxGenericMsg& msg, const Options& opts);
+void apply_four_way_restrictor(XboxGenericMsg& msg, const Options& opts);
+void apply_dpad_rotator(XboxGenericMsg& msg, const Options& opts);
 
 #endif
 

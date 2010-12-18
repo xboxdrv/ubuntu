@@ -3,7 +3,7 @@
           "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" [
           <!ENTITY % xboxdrvstuff SYSTEM "xboxdrv.ent">
           %xboxdrvstuff;
-]>
+          ]>
 <refentry id="xboxdrv">
   <refentryinfo>
     <date>2010-05-05</date>
@@ -38,7 +38,35 @@
 
   <refsect1>
     <title>Description</title>
+    <para>
+      <command>xboxdrv</command> is a driver for Xbox and Xbox360
+      gamepads. It works by reading the raw data from the controller
+      with the userspace library libusb and then passes the
+      interpreted data to the kernel via uinput. This
+      allows <command>xboxdrv</command> to provide regular joystick
+      and event devices, which makes it compatible with all Linux
+      software.
+    </para>
+    <para>
+      Aside from the pure driver, <command>xboxdrv</command> also
+      includes a rich set of configuration options that allow you to
+      tweak the abilities of the virtual input devices that xboxdrv
+      will create. This includes basic button and axis remapping, as
+      well as more complicated things like mouse and keyboard emulation,
+      auto-fire and throttle control emulation.
+    </para>
+    <para>
+      It is also possible for <command>xboxdrv</command> to read input
+      data directly from an event device, this allows you to use the
+      configurability of <command>xboxdrv</command> on regular PC
+      joysticks and thus lets <command>xboxdrv</command> serve a
+      similar purpose as <command>joy2key</command>. See the
+      option <option>--evdev</option> below for more information.
+    </para>
+  </refsect1>
 
+  <refsect1>
+    <title>Options</title>
     <refsect2>
       <title>General Options</title>
       <variablelist>
@@ -147,23 +175,76 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--mimic-xpad</option></term>
+          <term><option>--config</option> <replaceable class="parameter">FILE</replaceable></term>
           <listitem>
             <para>
-              Causes xboxdrv to use the same axis and button names as the xpad kernel driver.
+              Reads configuration information from <replaceable class="parameter">FILE</replaceable>.
+              Configurations from file are handling as if they would
+              be command line options at the position
+              of <option>--config</option> <replaceable class="parameter">FILE</replaceable>.
             </para>
+            <para>
+              The syntax
+              of <replaceable class="parameter">FILE</replaceable> is
+              the familiar INI syntax used for many configuration
+              files. Regular key/value pairs must go into the
+              [xboxdrv] section. '#' and ';' can be used for commets.
+              Key names have for most part the same name as command
+              line options. Command line options that take a list of
+              input mappings (--ui-buttonmap, --ui-axismap,
+              --evdev-absmap, ...) can be split of into their own
+              section for better readability.
+            </para>
+            <para>
+              The <filename>examples/</filename> directory contains
+              some example configuration files.
+            </para>
+            <programlisting><![CDATA[
+[xboxdrv]
+silent=true
+deadzone=6000
+dpad-as-button=true
+trigger-as-button=true
+
+[ui-axismap]
+x2=REL_X:10
+y2=REL_Y:-10
+x1=KEY_A:KEY_D
+y1=KEY_W:KEY_S
+
+[ui-buttonmap]
+a=KEY_LEFTSHIFT
+b=BTN_C
+x=BTN_EXTRA
+y=KEY_C
+
+[ui-buttonmap]
+lb=BTN_RIGHT
+rb=KEY_SPACE
+
+[ui-buttonmap]
+lt=KEY_Z
+rt=BTN_LEFT
+
+[ui-buttonmap]
+dl=KEY_4
+dr=KEY_2
+du=REL_WHEEL:-1:150
+dd=REL_WHEEL:1:150
+
+[ui-buttonmap]
+back=KEY_TAB
+start=KEY_ESC
+
+# EOF #]]></programlisting>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>--no-extra-devices</option></term>
+          <term><option>--mimic-xpad</option></term>
           <listitem>
             <para>
-              Normally xboxdrv will create an extra device for
-              keyboard emulation and mouse emulation when it detects a
-              button mapping that requires that. If this option is
-              set, it will not do that and instead dump all the
-              buttons into the joystick device.
+              Causes xboxdrv to use the same axis and button names as the xpad kernel driver.
             </para>
           </listitem>
         </varlistentry>
@@ -186,6 +267,18 @@
     <refsect2>
       <title>Device Options</title>
       <variablelist>
+        <varlistentry>
+          <term><option>-d</option>, <option>--detach-kernel-driver</option></term>
+          <listitem>
+            <para>
+              Detaches the kernel driver that is currently associated
+              with the given device. This is useful when you have the
+              xpad module loaded and want to use xboxdrv without
+              unloading it.
+            </para>
+          </listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><option>-i</option>, <option>--id</option> <replaceable class="parameter">N</replaceable></term>
           <listitem>
@@ -239,6 +332,81 @@
             </itemizedlist>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><option>--evdev</option> <replaceable class="parameter">DEVICE</replaceable></term>
+          <listitem>
+            <para>
+              Allows you to read input data from a regular event
+              device. This allows you to
+              use <command>xboxdrv</command> on regular PC
+              joysticks. The data that is read from the event device
+              is converted internally into a XboxMsg object and then
+              passed through the same configuration pipeline as it
+              would be for a regular Xbox360 controller. This allows
+              you to make use of all the regular configurability, but
+              limits you to the number of axis and buttons that an
+              Xbox360 controller provides.
+            </para>
+            <para>
+              As a regular PC joystick will most likely already create
+              a <filename>/dev/input/jsX</filename> device by itself,
+              you might need to get rid of that so that a game will
+              properly detect the joystick device created
+              by <command>xboxdrv</command>. The easiest way to
+              accomplish that is to simply delete the old joystick and
+              rename the device that <command>xboxdrv</command>
+              created to <filename>/dev/input/js0</filename>. When you
+              use udev, this operation should be harmless and
+              automatically reverse itself when you remove the
+              controller and plug it back in or when you reboot the
+              computer.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--evdev-absmap</option> <replaceable class="parameter">ABSMAP,...</replaceable></term>
+          <listitem>
+            <programlisting><![CDATA[ABSMAP = EVDEV_ABS [ "+", "-" ] "=" XBOXAXIS ;]]></programlisting>
+            <para>
+              Sets how evdev events are mapped to Xbox axis
+              events. An example configuration would look like this:
+            </para>
+            <programlisting>--evdev-absmap ABS_X=x1,ABS_Y=y1,ABS_RZ=x2,ABS_THROTTLE=y2,ABS_HAT0X=dpad_x,ABS_HAT0Y=dpad_y</programlisting>
+            <para>
+              <command>xboxdrv</command> will output on startup a full
+              list of event names that the given event device
+              supports and that can be used in place of <replaceable>EVDEV_ABS</replaceable>.
+            </para>
+            <para>
+              It is also possible to map half-axis with a command like:
+            </para>
+            <programlisting>--evdev-absmap ABS_Y+=LT,ABS_Y-=RT</programlisting>
+            <para>
+              This will map the upward movement of the Y axis to the
+              left trigger and the downward movement to the right
+              trigger. <!-- FIXME: directions might be wrong -->
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--evdev-keymap</option> <replaceable class="parameter">KEYMAP</replaceable></term>
+          <listitem>
+            <para>
+              Sets how evdev events are mapped to Xbox controller
+              events. An example configuration would look like this:
+            </para>
+            <programlisting>--evdev-keymap BTN_TRIGGER=a,BTN_THUMB=b,BTN_THUMB2=x</programlisting>
+            <para>
+              <command>xboxdrv</command> will output on start a full
+              list of event names that the given event device
+              supports.
+            </para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
     </refsect2>
 
@@ -359,7 +527,9 @@
             <para>
               Both sticks are ignored, only the DPad sends out axis
               events. Useful for games that might get confused by
-              additional analog axis.
+              additional analog axis. Combining this option
+              with <option>--trigger-as-button</option> is recommend
+              in most situations.
             </para>
           </listitem>
         </varlistentry>
@@ -489,6 +659,11 @@ DEVICEID     = NUMBER ;]]></programlisting>
               codes for <option>--ui-buttonmap</option>.
             </para>
             <para>
+              Aside from the named keys, you can also give the input
+              code directly as number via the
+              syntax <keysym>KEY_#<replaceable>NUM</replaceable></keysym>.
+            </para>
+            <para>
               Instead of the low level <keysym>KEY_</keysym> names,
               which represent keycodes, you can also use the higher
               level X11 keysyms <keysym>XK_</keysym>, the keysyms have
@@ -590,10 +765,11 @@ DEVICEID     = NUMBER ;]]></programlisting>
         <varlistentry>
           <term><option>--ui-axismap</option> <replaceable class="parameter">UIAXISSPEC,...</replaceable></term>
           <listitem>
-            <programlisting><![CDATA[UIAXISSPEC = XBOXAXIS "=" ( RELSPEC | BTNSPEC | ABSSPEC ) ;
+            <programlisting><![CDATA[UIAXISSPEC = [ XBOXBTN "+" ] XBOXAXIS "=" ( RELSPEC | BTNSPEC | ABSSPEC ) ;
 BTNSPEC    = "KEY_" NAME ":" "KEY_" NAME ":" THRESHOLD ;
 RELSPEC    = "REL_" NAME ":" VALUE ":" REPEAT ;
 ABSSPEC    = "ABS_" NAME ;
+XBOXBTN    = "a" | "b" | "x" | "y" | "start" | "back" | "guide" | "lb" | "rb" | ...
 XBOXAXIS   = "x1" | "y1" | "x2" | "y2" | "z" | "lt" | "rt" | "dpad_x" | "dpad_y" ;
 VALUE      = NUMBER ;
 REPEAT     = NUMBER ;
@@ -625,6 +801,25 @@ NAME       = STRING ;]]></programlisting>
             <para>
               <replaceable class="parameter">THRESHOLD</replaceable> gives the threshold that triggers the sending of an event
             </para>
+
+            <para>
+              Just like <option>--ui-buttonmap</option>, you can
+              also use shift keys in place of the XBOXAXIS:
+            </para>
+            <programlisting>$ xboxdrv --ui-axismap X1=ABS_X,LB+X1=ABS_RX</programlisting>
+            <para>
+              This allows you to send ABS_X events normally and ABS_RX
+              events when the LB button is held down.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--alt-config</option> <replaceable class="parameter">FILE</replaceable></term>
+          <listitem>
+            <para>
+              A shortcut for writing <option>--ui-new</option> <option>--config</option> <replaceable class="parameter">FILE</replaceable>.
+            </para>
           </listitem>
         </varlistentry>
 
@@ -635,7 +830,48 @@ NAME       = STRING ;]]></programlisting>
               Removes all uinput mappings and will leave the driver in
               a blank state and only map those things you added
               yourself.  If you only want to get rid of individual
-              buttons you can use the 'void' event:
+              buttons you can use the 'void' event.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--ui-new</option></term>
+          <listitem>
+            <para>
+              Allows the creation of an alternative uinput
+              configuration to which one can toggle at runtime by
+              pressing the ui-toggle button (defaults to guide).
+            </para>
+            <programlisting><![CDATA[$ xboxdrv \
+    --mouse \
+  --ui-new 
+    --ui-axismap X1=ABS_X,Y1=ABS_Y \
+    --ui-buttonmap A=JS_0,B=JS_1]]></programlisting>
+            <para>
+              The above configuration would install mouse emulation as
+              first configuration and a simple joystick emulation as
+              second configuration. Allowing toggling between mouse
+              emulation and joystick handling by pressing the guide
+              button.
+            </para>
+            <para>
+              Not that <option>--ui-new</option> is currently limited
+              to only configurations done
+              with <option>--ui-buttonmap</option>
+              and <option>--ui-axismap</option>, autofire, throttle
+              emulation, deadzones and all other things can currently
+              not be switched at runtime.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--ui-toggle</option> <replaceable class="parameter">XBOXBTN</replaceable></term>
+          <listitem>
+            <para>
+              Sets the button that will be used to toggle between
+              different uinput configurations.
             </para>
           </listitem>
         </varlistentry>
@@ -656,7 +892,7 @@ NAME       = STRING ;]]></programlisting>
   --ui-buttonmap "dl=KEY_LEFT,dr=KEY_RIGHT,du=KEY_UP,dd=KEY_DOWN,"
   --ui-buttonmap "start=KEY_FORWARD,back=KEY_BACK,guide=KEY_ESC,tl=void,tr=void"]]></programlisting>
             <para>
-              You can customize is by the usal means, just make sure
+              You can customize it by the usual means, just make sure
               that <option>--mouse</option> comes before you
               customization options on the command line.
             </para>
@@ -681,17 +917,20 @@ NAME       = STRING ;]]></programlisting>
           <term><option>--square-axis</option></term>
           <listitem>
             <para>
-              The Xbox360 gamepad, as most other current day gamepads, features a
-              circular movment range, which restricts the movement so that the
-              distance to the center never gets beyond 1. This means that when you
-              have the controller at the top/left the value reported is (0.7, 0.7)
-              (i.e. length 1, angle 45) instead of (1,1). This behaviour is
-              different then most classic joysticks, which had a square range and
-              allowed x and y to be handled completly indepened.
+              The Xbox360 gamepad, as most other current day gamepads,
+              features a circular movement range, which restricts the
+              movement so that the distance to the center never gets
+              beyond 1. This means that when you have the controller
+              at the top/left the value reported is (0.7, 0.7)
+              (i.e. length 1, angle 45) instead of (1,1). This
+              behaviour is different then most classic PC joysticks,
+              which had a square range and would report (1,1) when
+              hold in the top/left corner.
             </para>
 
-            <para>Some old games (i.e. DOS stuff) require a square movement range and
-              will thus not function properly with the Xbox360 gamepad. Via the
+            <para>Some old games (i.e. mostly DOS stuff) require a
+              square movement range and will not function properly
+              with the Xbox360 gamepad. Via the
               <option>--square-axis</option> option you can work around this issue and diagonals will
               be reported as (1,1).</para>
           </listitem>
@@ -1456,15 +1695,13 @@ EndSection]]></programlisting>
       When using the Xbox360 gamepad in Wine it is not specially handled as
       Xbox360 gamepad, this means games will not display the proper button
       labels, but just numbers (i.e. 'Btn1' instead of 'A' for
-      example). Asside from that it should work fine.
+      example). Aside from that it should work fine.
     </para>
     <para>
-      Xinput support (the DirectInput replacment, not the Xorg xinput) might
-      not work properly or not at all.
-    </para>
-    <para>
-      It is currently unknown if this can be fixed by xboxdrv or if it
-      requires patches to Wine.
+      XInput support (the DirectInput replacment, not the Xorg xinput)
+      is as of August 2010 not implemented in Wine, so games that
+      require XInput and don't have an DirectInput fallback will not
+      work with a Xbox360 controller, unofficial patches however do exist.
     </para>
   </refsect1>
 
@@ -1499,6 +1736,33 @@ EndSection]]></programlisting>
 
     <para>"Tomb Raider: Anniversary" running in Wine seems to work together with
       xboxdrv and rumble, but hasn't been intensivly tested.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Writing Start-Up Scripts for Games</title>
+    <para>When you want configurability and automatic launching, it is recomment
+      that you write little startup scripts for your games, such as this:</para>
+
+    <programlisting><![CDATA[#!/bin/sh
+
+# Start xboxdrv and remember its PID in the variable XBOXPID
+xboxdrv --trigger-as-button -s &amp;
+XBOXPID=$!
+
+# Give xboxdrv a second to startup and create the device
+sleep 1
+
+# Launch your favorite game
+your_favorite_game
+
+# Kill xboxdrv and wait for it to finish
+kill $XBOXPID
+wait $XBOXPID
+
+# EOF #]]></programlisting>
+
+    <para>That way you can individually configure every game and not
+      have to worry about launching xboxdrv manually.</para>
   </refsect1>
 
   <refsect1>

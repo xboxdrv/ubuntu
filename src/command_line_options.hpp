@@ -20,73 +20,60 @@
 #define HEADER_COMMAND_LINE_OPTIONS_HPP
 
 #include <vector>
+#include <map>
 
-#include "modifier.hpp"
-#include "xboxmsg.hpp"
-#include "uinput.hpp"
 #include "arg_parser.hpp"
+#include "ini_schema.hpp"
+#include "modifier.hpp"
+#include "uinput.hpp"
+#include "xboxmsg.hpp"
 
 class Xboxdrv;
 
-class CommandLineOptions 
+class CommandLineParser 
 {
 public:
-  enum { RUN_DEFAULT,
-         RUN_DAEMON, 
-         RUN_LIST_CONTROLLER,
-         RUN_LIST_SUPPORTED_DEVICES,
-         RUN_LIST_SUPPORTED_DEVICES_XPAD,
-         PRINT_VERSION,
-         PRINT_HELP,
-         PRINT_HELP_DEVICES,
-         PRINT_LED_HELP
-  } mode;
-
-  bool verbose;
-  bool silent;
-  bool quiet;
-  bool rumble;
-  int  led;
-  int  rumble_l;
-  int  rumble_r;
-  int  rumble_gain;
-  int  controller_id;
-  int  wireless_id;
-  bool instant_exit;
-  bool no_uinput;
-
-  GamepadType gamepad_type;
+  ArgParser m_argp;
+  INISchema m_ini;
+  Options*  m_options;
   
-  char busid[4];
-  char devid[4];
-
-  int vendor_id;
-  int product_id;
-
-  uInputCfg uinput_config;
-  int deadzone;
-  int deadzone_trigger;
-  std::vector<ButtonMapping> button_map;
-  std::vector<AxisMapping>   axis_map;
-  std::vector<AutoFireMapping> autofire_map;
-  std::vector<RelativeAxisMapping> relative_axis_map;
-  std::vector<CalibrationMapping> calibration_map;
-  std::vector<AxisSensitivityMapping> axis_sensitivity_map;
-  bool square_axis;
-  bool four_way_restrictor;
-  int  dpad_rotation;
-  ArgParser argp;
-
 public:
-  CommandLineOptions();
-  void parse_args(int argc, char** argv);
+  CommandLineParser();
+
+  void parse_args(int argc, char** argv, Options* options);
 
   void print_help() const;
   void print_led_help() const;
   void print_version() const;
+  void create_ini_schema(Options* opts);
+
+private:
+  void set_ui_axismap_from_string(const std::string& str);
+
+private:
+  void set_ui_axismap(const std::string& name, const std::string& value);
+  void set_ui_buttonmap(const std::string& name, const std::string& value);
+
+  void set_axismap(const std::string& name, const std::string& value);
+  void set_buttonmap(const std::string& name, const std::string& value);
+
+  void set_evdev_absmap(const std::string& name, const std::string& value);
+  void set_evdev_keymap(const std::string& name, const std::string& value);
+
+  void set_relative_axis(const std::string& name, const std::string& value);
+  void set_autofire(const std::string& name, const std::string& value);
+  void set_calibration(const std::string& name, const std::string& value);
+  void set_axis_sensitivity(const std::string& name, const std::string& value);
+
+  void read_config_file(Options* opts, const std::string& filename);
+  void read_alt_config_file(Options* opts, const std::string& filename);
+
+private:
+  void init_argp();
+  void init_ini(Options* opts);
 };
 
-extern CommandLineOptions* command_line_options;
+extern Options* g_options;
 
 #endif
 

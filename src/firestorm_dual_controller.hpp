@@ -34,7 +34,7 @@ private:
   int right_rumble;
 
 public:
-  FirestormDualController(struct usb_device* dev, bool is_vsb);
+  FirestormDualController(struct usb_device* dev, bool is_vsb, bool try_detach);
   ~FirestormDualController();
 
   void set_rumble(uint8_t left, uint8_t right);
@@ -42,6 +42,8 @@ public:
 
   /** @param timeout   timeout in msec, 0 means forever */
   bool read(XboxGenericMsg& msg, bool verbose, int timeout);
+
+private:
   bool read_default(XboxGenericMsg& msg, bool verbose, int timeout);
   bool read_vsb(XboxGenericMsg& msg, bool verbose, int timeout);
 

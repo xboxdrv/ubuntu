@@ -16,7 +16,7 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-
+#include <stdio.h>
 #include <assert.h>
 #include <linux/input.h>
 #include <sys/ioctl.h>
@@ -27,6 +27,13 @@
 #include <errno.h>
 
 #include "evdev_driver.hpp"
+
+#include "abs_port_in.hpp"
+#include "abs_port_out.hpp"
+#include "btn_port_in.hpp"
+#include "btn_port_out.hpp"
+#include "rel_port_in.hpp"
+#include "rel_port_out.hpp"
 
 #define BITS_PER_LONG (sizeof(long) * 8)
 #define NBITS(x) ((((x)-1)/BITS_PER_LONG)+1)

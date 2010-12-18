@@ -45,8 +45,9 @@ uInput::is_keyboard_button(int ev_code)
   return (ev_code < 256);
 }
 
-uInput::uInput(const XPadDevice& dev, uInputCfg config_) :
-  m_dev(dev),
+uInput::uInput(GamepadType type, int vendor_id, int product_id, uInputCfg config_) :
+  m_vendor_id(vendor_id),
+  m_product_id(product_id),
   uinput_devs(),
   cfg(config_),
   rel_repeat_lst()
@@ -59,14 +60,14 @@ uInput::uInput(const XPadDevice& dev, uInputCfg config_) :
     create_uinput_device(DEVICEID_JOYSTICK);
   }
 
-  switch(dev.type)
+  switch(type)
   {
     case GAMEPAD_XBOX360:
     case GAMEPAD_XBOX:
     case GAMEPAD_XBOX360_WIRELESS:
     case GAMEPAD_FIRESTORM:
     case GAMEPAD_FIRESTORM_VSB:
-      setup_xbox360_gamepad(dev.type);
+      setup_xbox360_gamepad(type);
       break;
 
     case GAMEPAD_XBOX360_GUITAR:
@@ -74,7 +75,7 @@ uInput::uInput(const XPadDevice& dev, uInputCfg config_) :
       break;
 
     default:
-      std::cout << "Unhandled type: " << dev.type << std::endl;
+      std::cout << "Unhandled type: " << type << std::endl;
       exit(EXIT_FAILURE);
       break;
   }
@@ -97,47 +98,33 @@ uInput::create_uinput_device(int device_id)
   }
   else
   {
+    LinuxUinput::DeviceType device_type = LinuxUinput::kGenericDevice;
     std::ostringstream dev_name;
     dev_name << cfg.device_name;
 
-    if (device_id == DEVICEID_MOUSE)
+    switch (device_id)
     {
-      dev_name << " - Mouse Emulation";
-    }
-    else if (device_id == DEVICEID_KEYBOARD)
-    {
-      dev_name << " - Keyboard Emulation";
-    }
-    else if (device_id > 0)
-    {
-      dev_name << " - 2" << device_id+1;
-    }
-
-    boost::shared_ptr<LinuxUinput> dev(new LinuxUinput(dev_name.str(), m_dev.idVendor, m_dev.idProduct));
-    uinput_devs.insert(std::pair<int, boost::shared_ptr<LinuxUinput> >(device_id, dev));
-
-    // Create some mandatory events that are needed for the kernel/Xorg
-    // to register the device as its proper type
-    switch(device_id)
-    {
-      case DEVICEID_KEYBOARD:
-        // do nothing, detection seems to be fine without
+      case DEVICEID_JOYSTICK:
+        device_type = LinuxUinput::kJoystickDevice;
         break;
 
       case DEVICEID_MOUSE:
-        dev->add_rel(REL_X);
-        dev->add_rel(REL_Y);
-        dev->add_key(BTN_LEFT);
+        device_type = LinuxUinput::kMouseDevice;
+        dev_name << " - Mouse Emulation";
         break;
-
-      case DEVICEID_JOYSTICK:
-        // do nothing, as we don't know yet the range of abs, unmapped
-        // buttons might also confuse some games
+      
+      case DEVICEID_KEYBOARD:
+        device_type = LinuxUinput::kGenericDevice;
+        dev_name << " - Keyboard Emulation";
         break;
 
       default:
+        dev_name << " - " << device_id+1;
         break;
     }
+
+    boost::shared_ptr<LinuxUinput> dev(new LinuxUinput(device_type, dev_name.str(), m_vendor_id, m_product_id));
+    uinput_devs.insert(std::pair<int, boost::shared_ptr<LinuxUinput> >(device_id, dev));
 
     std::cout << "Creating uinput device: device_id: " << device_id << ", dev_name: " << dev_name.str() << std::endl;
   }
@@ -188,69 +175,52 @@ uInput::setup_xbox360_gamepad(GamepadType type)
     // '- FF_CUSTOM
   }
 
-  if (cfg.dpad_only)
-  {
-    add_axis(XBOX_AXIS_X1, -1, 1);
-    add_axis(XBOX_AXIS_Y1, -1, 1);
-  }
-  else
-  {
-    add_axis(XBOX_AXIS_X1, -32768, 32767);
-    add_axis(XBOX_AXIS_Y1, -32768, 32767);
-  }
+  // analog sticks
+  add_axis(XBOX_AXIS_X1);
+  add_axis(XBOX_AXIS_Y1);
 
-  if (!cfg.dpad_only)
-  {  
-    add_axis(XBOX_AXIS_X2, -32768, 32767);
-    add_axis(XBOX_AXIS_Y2, -32768, 32767);
-  }
+  add_axis(XBOX_AXIS_X2);
+  add_axis(XBOX_AXIS_Y2);
 
-  if (cfg.trigger_as_button)
-  {
-    add_button(XBOX_BTN_LT);
-    add_button(XBOX_BTN_RT);
-  }
-  else if (cfg.trigger_as_zaxis)
-  {
-    add_axis(XBOX_AXIS_TRIGGER, -255, 255);
-  }
-  else
-  {
-    add_axis(XBOX_AXIS_LT, 0, 255);
-    add_axis(XBOX_AXIS_RT, 0, 255);
-  }
+  // trigger
+  add_button(XBOX_BTN_LT);
+  add_button(XBOX_BTN_RT);
 
-  if (!cfg.dpad_only)
-  {
-    if (!cfg.dpad_as_button)
-    {
-      add_axis(XBOX_AXIS_DPAD_X, -1, 1);
-      add_axis(XBOX_AXIS_DPAD_Y, -1, 1);
-    }
-    else
-    {
-      add_button(XBOX_DPAD_UP);
-      add_button(XBOX_DPAD_DOWN);
-      add_button(XBOX_DPAD_LEFT);
-      add_button(XBOX_DPAD_RIGHT);
-    }
-  }
+  add_axis(XBOX_AXIS_TRIGGER);
 
+  add_axis(XBOX_AXIS_LT);
+  add_axis(XBOX_AXIS_RT);
+
+  // dpad
+  add_axis(XBOX_AXIS_DPAD_X);
+  add_axis(XBOX_AXIS_DPAD_Y);
+  
+  add_button(XBOX_DPAD_UP);
+  add_button(XBOX_DPAD_DOWN);
+  add_button(XBOX_DPAD_LEFT);
+  add_button(XBOX_DPAD_RIGHT);
+
+  // start/back button
   add_button(XBOX_BTN_START);
   add_button(XBOX_BTN_BACK);
         
   if (type == GAMEPAD_XBOX360 || 
       type == GAMEPAD_XBOX360_WIRELESS)
+  {
     add_button(XBOX_BTN_GUIDE);
+  }
 
+  // face button
   add_button(XBOX_BTN_A);
   add_button(XBOX_BTN_B);
   add_button(XBOX_BTN_X);
   add_button(XBOX_BTN_Y);
 
+  // shoulder button
   add_button(XBOX_BTN_LB);
   add_button(XBOX_BTN_RB);
 
+  // analog stick button
   add_button(XBOX_BTN_THUMB_L);
   add_button(XBOX_BTN_THUMB_R);
 }
@@ -259,8 +229,8 @@ void
 uInput::setup_xbox360_guitar()
 {
   // Whammy and Tilt
-  add_axis(XBOX_AXIS_X1, -32768, 32767);
-  add_axis(XBOX_AXIS_Y1, -32768, 32767);
+  add_axis(XBOX_AXIS_X1);
+  add_axis(XBOX_AXIS_Y1);
 
   // Dpad
   add_button(XBOX_DPAD_UP);
@@ -316,141 +286,106 @@ uInput::send(XboxGenericMsg& msg)
 void
 uInput::send(Xbox360Msg& msg)
 {
+  // analog stick button
   send_button(XBOX_BTN_THUMB_L, msg.thumb_l);
   send_button(XBOX_BTN_THUMB_R, msg.thumb_r);
 
+  // shoulder button
   send_button(XBOX_BTN_LB, msg.lb);
   send_button(XBOX_BTN_RB, msg.rb);
 
+  // start/back button
   send_button(XBOX_BTN_START, msg.start);
   send_button(XBOX_BTN_GUIDE, msg.guide);
   send_button(XBOX_BTN_BACK, msg.back);
 
+  // face button
   send_button(XBOX_BTN_A, msg.a);
   send_button(XBOX_BTN_B, msg.b);
   send_button(XBOX_BTN_X, msg.x);
   send_button(XBOX_BTN_Y, msg.y);
 
-  if (cfg.trigger_as_zaxis)
-  {
-    send_axis(XBOX_AXIS_TRIGGER, (int(msg.rt) - int(msg.lt)));
-  }
-  else if (cfg.trigger_as_button)
-  {
-    send_button(XBOX_BTN_LT, msg.lt);
-    send_button(XBOX_BTN_RT, msg.rt);
-  }
-  else
-  {
-    send_axis(XBOX_AXIS_LT, msg.lt);
-    send_axis(XBOX_AXIS_RT, msg.rt);
-  }
+  // trigger
+  send_button(XBOX_BTN_LT, msg.lt); // FIXME: no deadzone handling here
+  send_button(XBOX_BTN_RT, msg.rt);
 
-  if (!cfg.dpad_only)
-  {
-    send_axis(XBOX_AXIS_X1,  msg.x1);
-    send_axis(XBOX_AXIS_Y1, -msg.y1);
+  send_axis(XBOX_AXIS_LT, msg.lt);
+  send_axis(XBOX_AXIS_RT, msg.rt);
 
-    send_axis(XBOX_AXIS_X2,  msg.x2);
-    send_axis(XBOX_AXIS_Y2, -msg.y2);
-  }
+  send_axis(XBOX_AXIS_TRIGGER, (int(msg.rt) - int(msg.lt)));
 
-  if (cfg.dpad_as_button)
-  {
-    send_button(XBOX_DPAD_UP,    msg.dpad_up);
-    send_button(XBOX_DPAD_DOWN,  msg.dpad_down);
-    send_button(XBOX_DPAD_LEFT,  msg.dpad_left);
-    send_button(XBOX_DPAD_RIGHT, msg.dpad_right);
-  }
-  else
-  {
-    int dpad_x = XBOX_AXIS_DPAD_X;
-    int dpad_y = XBOX_AXIS_DPAD_Y;
-      
-    if (cfg.dpad_only)
-    {
-      dpad_x = XBOX_AXIS_X1;
-      dpad_y = XBOX_AXIS_Y1;
-    }
+  // analog sticks
+  send_axis(XBOX_AXIS_X1,  msg.x1);
+  send_axis(XBOX_AXIS_Y1, -msg.y1);
+  
+  send_axis(XBOX_AXIS_X2,  msg.x2);
+  send_axis(XBOX_AXIS_Y2, -msg.y2);
 
-    if      (msg.dpad_up)    send_axis(dpad_y, -1);
-    else if (msg.dpad_down)  send_axis(dpad_y,  1);
-    else                     send_axis(dpad_y,  0);
+  // dpad
+  send_button(XBOX_DPAD_UP,    msg.dpad_up);
+  send_button(XBOX_DPAD_DOWN,  msg.dpad_down);
+  send_button(XBOX_DPAD_LEFT,  msg.dpad_left);
+  send_button(XBOX_DPAD_RIGHT, msg.dpad_right);
 
-    if      (msg.dpad_left)  send_axis(dpad_x, -1);
-    else if (msg.dpad_right) send_axis(dpad_x,  1);
-    else                     send_axis(dpad_x,  0);
-  }
+  if      (msg.dpad_up)    send_axis(XBOX_AXIS_DPAD_Y, -1);
+  else if (msg.dpad_down)  send_axis(XBOX_AXIS_DPAD_Y,  1);
+  else                     send_axis(XBOX_AXIS_DPAD_Y,  0);
+
+  if      (msg.dpad_left)  send_axis(XBOX_AXIS_DPAD_X, -1);
+  else if (msg.dpad_right) send_axis(XBOX_AXIS_DPAD_X,  1);
+  else                     send_axis(XBOX_AXIS_DPAD_X,  0);
 }
 
 void
 uInput::send(XboxMsg& msg)
 {
+  // analog stick button
   send_button(XBOX_BTN_THUMB_L, msg.thumb_l);
   send_button(XBOX_BTN_THUMB_R, msg.thumb_r);
 
-  send_button(XBOX_BTN_WHITE, msg.white);
-  send_button(XBOX_BTN_BLACK, msg.black);
-
+  // start/back button
   send_button(XBOX_BTN_START, msg.start);
   send_button(XBOX_BTN_BACK,  msg.back);
 
+  // face button
   send_button(XBOX_BTN_A, msg.a);
   send_button(XBOX_BTN_B, msg.b);
   send_button(XBOX_BTN_X, msg.x);
   send_button(XBOX_BTN_Y, msg.y);
 
-  if (cfg.trigger_as_zaxis)
-  {
-    send_axis(XBOX_AXIS_TRIGGER, (int(msg.rt) - int(msg.lt)));
-  }
-  else if (cfg.trigger_as_button)
-  {
-    send_button(XBOX_BTN_LT, msg.lt);
-    send_button(XBOX_BTN_RT, msg.rt);
-  }
-  else
-  {
-    send_axis(XBOX_AXIS_LT, msg.lt);
-    send_axis(XBOX_AXIS_RT,   msg.rt);
-  }
+  send_button(XBOX_BTN_WHITE, msg.white);
+  send_button(XBOX_BTN_BLACK, msg.black);
 
+  // trigger
+  send_button(XBOX_BTN_LT, msg.lt);
+  send_button(XBOX_BTN_RT, msg.rt);
 
-  if (!cfg.dpad_only)
-  {
-    send_axis(XBOX_AXIS_X1,  msg.x1);
-    send_axis(XBOX_AXIS_Y1, -msg.y1);
+  send_axis(XBOX_AXIS_LT, msg.lt);
+  send_axis(XBOX_AXIS_RT, msg.rt);
 
-    send_axis(XBOX_AXIS_X2,  msg.x2);
-    send_axis(XBOX_AXIS_Y2, -msg.y2);
-  }
+  send_axis(XBOX_AXIS_TRIGGER, (int(msg.rt) - int(msg.lt)));
 
-  if (cfg.dpad_as_button)
-  {
-    send_button(XBOX_DPAD_UP,    msg.dpad_up);
-    send_button(XBOX_DPAD_DOWN,  msg.dpad_down);
-    send_button(XBOX_DPAD_LEFT,  msg.dpad_left);
-    send_button(XBOX_DPAD_RIGHT, msg.dpad_right);
-  }
-  else
-  {
-    int dpad_x = XBOX_AXIS_DPAD_X;
-    int dpad_y = XBOX_AXIS_DPAD_Y;
-      
-    if (cfg.dpad_only)
-    {
-      dpad_x = XBOX_AXIS_X1;
-      dpad_y = XBOX_AXIS_Y1;
-    }
+  // analog sticks
+  send_axis(XBOX_AXIS_X1,  msg.x1);
+  send_axis(XBOX_AXIS_Y1, -msg.y1);
 
-    if      (msg.dpad_up)    send_axis(dpad_y, -1);
-    else if (msg.dpad_down)  send_axis(dpad_y,  1);
-    else                     send_axis(dpad_y,  0);
+  send_axis(XBOX_AXIS_X2,  msg.x2);
+  send_axis(XBOX_AXIS_Y2, -msg.y2);
 
-    if      (msg.dpad_left)  send_axis(dpad_x, -1);
-    else if (msg.dpad_right) send_axis(dpad_x,  1);
-    else                     send_axis(dpad_x,  0);
-  }
+  // dpad as button
+  send_button(XBOX_DPAD_UP,    msg.dpad_up);
+  send_button(XBOX_DPAD_DOWN,  msg.dpad_down);
+  send_button(XBOX_DPAD_LEFT,  msg.dpad_left);
+  send_button(XBOX_DPAD_RIGHT, msg.dpad_right);
+
+  // dpad as axis
+  if      (msg.dpad_up)    send_axis(XBOX_AXIS_DPAD_Y, -1);
+  else if (msg.dpad_down)  send_axis(XBOX_AXIS_DPAD_Y,  1);
+  else                     send_axis(XBOX_AXIS_DPAD_Y,  0);
+
+  if      (msg.dpad_left)  send_axis(XBOX_AXIS_DPAD_X, -1);
+  else if (msg.dpad_right) send_axis(XBOX_AXIS_DPAD_X,  1);
+  else                     send_axis(XBOX_AXIS_DPAD_X,  0);
 }
 
 void
@@ -501,52 +436,73 @@ uInput::update(int msec_delta)
 }
 
 void
-uInput::send_button(int code, bool value)
+uInput::send_button(XboxButton code, bool value)
 {
   if (button_state[code] != value)
   {
     button_state[code] = value;
 
-    // in case a shift button was changed, we have to clear all
-    // connected buttons
-    for(int i = 0; i < XBOX_BTN_MAX; ++i) // iterate over all buttons
+    if (code == cfg.config_toggle_button)
     {
-      if (button_state[i])
+      if (value)
       {
-        const ButtonEvent& event = cfg.btn_map.lookup(code, i);
-        if (event.is_valid())
+        reset_all_outputs();
+        cfg.next_input_mapping();
+      }
+    }
+    else
+    {
+      // in case a shift button was changed, we have to clear all
+      // connected buttons
+      for(int i = 0; i < XBOX_BTN_MAX; ++i) // iterate over all buttons
+      {
+        if (button_state[i])
         {
-          for(int j = 0; j < XBOX_BTN_MAX; ++j) // iterate over all shift buttons
+          const ButtonEvent& event = cfg.get_btn_map().lookup(code, static_cast<XboxButton>(i));
+          if (event.is_valid())
           {
-            const ButtonEvent& event = cfg.btn_map.lookup(j, i);
-            if (event.is_valid())
-              event.send(*this, false);
+            for(int j = 0; j < XBOX_BTN_MAX; ++j) // iterate over all shift buttons
+            {
+              const ButtonEvent& event2 = cfg.get_btn_map().lookup(static_cast<XboxButton>(j),
+                                                                   static_cast<XboxButton>(i));
+              if (event2.is_valid())
+                event2.send(*this, false);
+            }
           }
         }
       }
-    }
 
-    // Shifted button events
-    for(int i = 0; i < XBOX_BTN_MAX; ++i)
-    {
-      if (button_state[i]) // shift button is pressed
+      // Shifted button events
+      for(int i = 0; i < XBOX_BTN_MAX; ++i)
       {
-        const ButtonEvent& event = cfg.btn_map.lookup(i, code);
-        if (event.is_valid())
+        if (button_state[i]) // shift button is pressed
         {
-          event.send(*this, value);
-          // exit after the first successful event, so we don't send
-          // multiple events for the same button
-          return;
+          const ButtonEvent& event = cfg.get_btn_map().lookup(static_cast<XboxButton>(i), code);
+          if (event.is_valid())
+          {
+            event.send(*this, value);
+            // exit after the first successful event, so we don't send
+            // multiple events for the same button
+            return;
+          }
         }
       }
-    }
 
-    // Non shifted button events
-    const ButtonEvent& event = cfg.btn_map.lookup(code);
-    if (event.is_valid())
-      event.send(*this, value);
+      // Non shifted button events
+      const ButtonEvent& event = cfg.get_btn_map().lookup(code);
+      if (event.is_valid())
+        event.send(*this, value);
+    }
   }
+}
+
+void
+uInput::reset_all_outputs()
+{
+  // FIXME: kind of a hack
+  Xbox360Msg msg;
+  memset(&msg, 0, sizeof(msg));
+  send(msg);
 }
 
 void
@@ -615,35 +571,68 @@ uInput::send_rel_repetitive(const UIEvent& code, int value, int repeat_interval)
 }
 
 void
-uInput::send_axis(int code, int32_t value)
+uInput::send_axis(XboxAxis code, int32_t value)
 {
+  // FIXME: should be sending updates when the shift button changes,
+  // not just when the axis changed
   if (axis_state[code] != value)
   {
     int old_value = axis_state[code];
     axis_state[code] = value;
 
-    const AxisEvent& event = cfg.axis_map[code];
-    if (event.is_valid())
-      event.send(*this, old_value, value);
+    bool event_send = false;
+
+    // send all shifted stuff
+    for(int shift = 1; shift < XBOX_BTN_MAX; ++shift)
+    {    
+      if (button_state[shift])
+      {
+        const AxisEvent& event = cfg.get_axis_map().lookup(static_cast<XboxButton>(shift), code);
+        if (event.is_valid())
+        {
+          event.send(*this, old_value, value);
+          event_send = true;
+        }
+      }
+    }
+
+    // sending regular axis, if no shifted events where send
+    if (!event_send)
+    {
+      const AxisEvent& event = cfg.get_axis_map().lookup(code);
+      if (event.is_valid())
+      {
+        event.send(*this, old_value, value);
+      }
+    }
   }
 }
 
 void
-uInput::add_axis(int code, int min, int max)
+uInput::add_axis(XboxAxis code)
 {
-  const AxisEvent& event = cfg.axis_map[code];
-  if (event.is_valid())
-    event.init(*this);
+  for(int n = 0; n < cfg.input_mapping_count(); ++n)
+  {
+    for(int shift = 0; shift < XBOX_BTN_MAX; ++shift)
+    {
+      const AxisEvent& event = cfg.get_axis_map(n).lookup(static_cast<XboxButton>(shift), code);
+      if (event.is_valid())
+        event.init(*this);
+    }
+  }
 }
 
 void
-uInput::add_button(int code)
+uInput::add_button(XboxButton code)
 {
-  for(int i = 0; i < XBOX_BTN_MAX; ++i)
+  for(int n = 0; n < cfg.input_mapping_count(); ++n)
   {
-    const ButtonEvent& event = cfg.btn_map.lookup(i, code);
-    if (event.is_valid())
-      event.init(*this);
+    for(int i = 0; i < XBOX_BTN_MAX; ++i)
+    {
+      const ButtonEvent& event = cfg.get_btn_map(n).lookup(static_cast<XboxButton>(i), code);
+      if (event.is_valid())
+        event.init(*this);
+    }
   }
 }
 
@@ -662,12 +651,6 @@ uInput::get_uinput(int device_id) const
     str << "Couldn't find uinput device: " << device_id;
     throw std::runtime_error(str.str());
   }
-}
-
-LinuxUinput*
-uInput::get_mouse_uinput() const
-{
-  return get_uinput(DEVICEID_MOUSE);
 }
 
 LinuxUinput*

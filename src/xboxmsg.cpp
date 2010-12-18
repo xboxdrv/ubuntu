@@ -22,7 +22,7 @@
 #include <algorithm>
 
 #include "helper.hpp"
-#include "command_line_options.hpp"
+#include "options.hpp"
 #include "xboxmsg.hpp"
 
 std::string gamepadtype_to_string(const GamepadType& type)
@@ -34,6 +34,9 @@ std::string gamepadtype_to_string(const GamepadType& type)
 
     case GAMEPAD_XBOX360_WIRELESS:
       return "xbox360-wireless";
+
+    case GAMEPAD_XBOX360_PLAY_N_CHARGE: 
+      return "xbox360-playncharge";
 
     case GAMEPAD_XBOX:
       return "xbox";
@@ -65,6 +68,7 @@ std::string gamepadtype_to_macro_string(const GamepadType& type)
   {
     case GAMEPAD_XBOX360: return "GAMEPAD_XBOX360";
     case GAMEPAD_XBOX360_WIRELESS: return "GAMEPAD_XBOX360_WIRELESS";
+    case GAMEPAD_XBOX360_PLAY_N_CHARGE: return "GAMEPAD_XBOX360_PLAY_N_CHARGE";
     case GAMEPAD_XBOX: return "GAMEPAD_XBOX";
     case GAMEPAD_XBOX_MAT: return "GAMEPAD_XBOX_MAT";
     case GAMEPAD_XBOX360_GUITAR: return "GAMEPAD_XBOX360_GUITAR";
@@ -85,6 +89,9 @@ std::ostream& operator<<(std::ostream& out, const GamepadType& type)
 
     case GAMEPAD_XBOX360_WIRELESS:
       return out << "Xbox360 (wireless)";
+
+    case GAMEPAD_XBOX360_PLAY_N_CHARGE: 
+      return out << "Xbox360 Play&Charge";
 
     case GAMEPAD_XBOX:
       return out << "Xbox Classic";
@@ -145,7 +152,7 @@ std::ostream& operator<<(std::ostream& out, const Xbox360GuitarMsg& msg)
     % int(msg.blue)
     % int(msg.orange);
 
-  if (command_line_options->verbose)
+  if (g_options->verbose)
   {
     out << boost::format("| dummy: %d %d %d %d %02hhx %02hhx %04hx %04hx %02x %02x")
       % int(msg.thumb_l)
@@ -198,7 +205,7 @@ std::ostream& operator<<(std::ostream& out, const Xbox360Msg& msg)
   out << boost::format("  LT:%3d RT:%3d")
     % int(msg.lt) % int(msg.rt);
 
-  if (command_line_options->verbose)
+  if (g_options->verbose)
     out << " Dummy: " << msg.dummy1 << " " << msg.dummy2 << " " << msg.dummy3;
 
   return out;
@@ -238,7 +245,7 @@ std::ostream& operator<<(std::ostream& out, const XboxMsg& msg)
     % int(msg.lt) 
     % int(msg.rt);
 
-  if (command_line_options->verbose)
+  if (g_options->verbose)
     out << " Dummy: " << msg.dummy;
 
   return out;
@@ -364,7 +371,7 @@ int get_button(XboxGenericMsg& msg, XboxButton button)
   return 0;
 }
 
-void set_button(XboxGenericMsg& msg, XboxButton button, int v)
+void set_button(XboxGenericMsg& msg, XboxButton button, bool v)
 {
   switch(msg.type)
   {
@@ -401,9 +408,9 @@ void set_button(XboxGenericMsg& msg, XboxButton button, int v)
           msg.xbox360.rb = v; break;
 
         case XBOX_BTN_LT:
-          msg.xbox360.lt = v; break;
+          msg.xbox360.lt = v*255; break;
         case XBOX_BTN_RT:
-          msg.xbox360.rt = v; break;
+          msg.xbox360.rt = v*255; break;
 
         case XBOX_BTN_THUMB_L:
           msg.xbox360.thumb_l = v; break;
@@ -493,10 +500,39 @@ int get_axis(XboxGenericMsg& msg, XboxAxis axis)
       {
         case XBOX_AXIS_MAX:
         case XBOX_AXIS_UNKNOWN:
+          break;
+
         case XBOX_AXIS_DPAD_X:
+          if (msg.xbox360.dpad_left)
+          {
+            return -1;
+          }
+          else if (msg.xbox360.dpad_right)
+          {
+            return 1;
+          }
+          else
+          {
+            return 0;
+          }
+
         case XBOX_AXIS_DPAD_Y:
+          if (msg.xbox360.dpad_up)
+          {
+            return -1;
+          }
+          else if (msg.xbox360.dpad_down)
+          {
+            return 1;
+          }
+          else
+          {
+            return 0;
+          }
+
         case XBOX_AXIS_TRIGGER:
-          return 0;
+          return msg.xbox360.rt - msg.xbox360.lt;
+
         case XBOX_AXIS_X1:
           return msg.xbox360.x1;
         case XBOX_AXIS_Y1:
@@ -517,10 +553,39 @@ int get_axis(XboxGenericMsg& msg, XboxAxis axis)
       {
         case XBOX_AXIS_MAX:
         case XBOX_AXIS_UNKNOWN:
+          break;
+
         case XBOX_AXIS_DPAD_X:
+          if (msg.xbox.dpad_left)
+          {
+            return -1;
+          }
+          else if (msg.xbox.dpad_right)
+          {
+            return 1;
+          }
+          else
+          {
+            return 0;
+          }
+
         case XBOX_AXIS_DPAD_Y:
+          if (msg.xbox.dpad_up)
+          {
+            return -1;
+          }
+          else if (msg.xbox.dpad_down)
+          {
+            return 1;
+          }
+          else
+          {
+            return 0;
+          }
+
         case XBOX_AXIS_TRIGGER:
-          return 0;
+          return msg.xbox.rt - msg.xbox.lt;
+
         case XBOX_AXIS_X1:
           return msg.xbox.x1;
         case XBOX_AXIS_Y1:
@@ -551,9 +616,13 @@ float s16_to_float(int16_t value)
   }
 }
 
+/**
+   input:  [0, 255]
+   output: [ -1.0f, 1.0f ] 
+*/
 float u8_to_float(uint8_t value)
 {
-  return static_cast<float>(value) / 255.0f;
+  return static_cast<float>(value) / 255.0f * 2.0f - 1.0f;
 }
 
 int16_t float_to_s16(float v)
@@ -568,9 +637,13 @@ int16_t float_to_s16(float v)
   }
 }
 
+/**
+   input:  [ -1.0f, 1.0f ] 
+   output: [0, 255]
+*/
 uint8_t float_to_u8(float v)
 {
-  return static_cast<uint8_t>(Math::clamp(0.0f, 1.0f, v) * 255.0f);
+  return static_cast<uint8_t>(Math::clamp(0.0f, (v + 1.0f) / 2.0f, 1.0f) * 255.0f);
 }
 
 float get_axis_float(XboxGenericMsg& msg, XboxAxis axis)
@@ -583,11 +656,39 @@ float get_axis_float(XboxGenericMsg& msg, XboxAxis axis)
       {
         case XBOX_AXIS_MAX:
         case XBOX_AXIS_UNKNOWN:
+          break;
+
         case XBOX_AXIS_DPAD_X:
+          if (msg.xbox360.dpad_left)
+          {
+            return -1;
+          }
+          else if (msg.xbox360.dpad_right)
+          {
+            return 1;
+          }
+          else
+          {
+            return 0;
+          }
+
         case XBOX_AXIS_DPAD_Y:
+          if (msg.xbox360.dpad_up)
+          {
+            return -1;
+          }
+          else if (msg.xbox360.dpad_down)
+          {
+            return 1;
+          }
+          else
+          {
+            return 0;
+          }
+
         case XBOX_AXIS_TRIGGER:
-          // FIXME: Doesn't seem right
-          return 0.0f;
+          return (msg.xbox360.rt - msg.xbox360.lt)/255.0f;
+
         case XBOX_AXIS_X1:
           return s16_to_float(msg.xbox360.x1);
         case XBOX_AXIS_Y1:
@@ -608,10 +709,39 @@ float get_axis_float(XboxGenericMsg& msg, XboxAxis axis)
       {
         case XBOX_AXIS_MAX:
         case XBOX_AXIS_UNKNOWN:
+          break;
+
         case XBOX_AXIS_DPAD_X:
+          if (msg.xbox.dpad_left)
+          {
+            return -1;
+          }
+          else if (msg.xbox.dpad_right)
+          {
+            return 1;
+          }
+          else
+          {
+            return 0;
+          }
+
         case XBOX_AXIS_DPAD_Y:
+          if (msg.xbox.dpad_up)
+          {
+            return -1;
+          }
+          else if (msg.xbox.dpad_down)
+          {
+            return 1;
+          }
+          else
+          {
+            return 0;
+          }
+
         case XBOX_AXIS_TRIGGER:
-          return 0.0f;
+          return (msg.xbox.rt - msg.xbox.lt) / 255.0f;
+
         case XBOX_AXIS_X1:
           return s16_to_float(msg.xbox.x1);
         case XBOX_AXIS_Y1:
@@ -640,11 +770,49 @@ void set_axis_float(XboxGenericMsg& msg, XboxAxis axis, float v)
       {
         case XBOX_AXIS_MAX:
         case XBOX_AXIS_UNKNOWN:
-        case XBOX_AXIS_DPAD_X:
-        case XBOX_AXIS_DPAD_Y:
-        case XBOX_AXIS_TRIGGER:
-          // FIXME: Doesn't seem right
           break;
+
+        case XBOX_AXIS_TRIGGER:
+          msg.xbox360.lt = v < 0 ? int(v*255) : 0;
+          msg.xbox360.rt = v > 0 ? int(v*255) : 0;
+          break;
+        
+        case XBOX_AXIS_DPAD_X:
+          if (v > 0.5f)
+          {
+            msg.xbox360.dpad_left  = false;
+            msg.xbox360.dpad_right =  true;
+          }
+          else if (v < -0.5f)
+          {
+            msg.xbox360.dpad_left   = true;
+            msg.xbox360.dpad_right = false;
+          }
+          else
+          {
+            msg.xbox360.dpad_left  = false;
+            msg.xbox360.dpad_right = false;
+          }
+          break;
+
+        case XBOX_AXIS_DPAD_Y:
+          if (v > 0.5f)
+          {
+            msg.xbox360.dpad_up   = false;
+            msg.xbox360.dpad_down = true;
+          }
+          else if (v < -0.5f)
+          {
+            msg.xbox360.dpad_up   = true;
+            msg.xbox360.dpad_down = false;
+          }
+          else
+          {
+            msg.xbox360.dpad_down = false;
+            msg.xbox360.dpad_up  = false;
+          }
+          break;
+
         case XBOX_AXIS_X1:
           msg.xbox360.x1 = float_to_s16(v); break;
         case XBOX_AXIS_Y1:
@@ -665,10 +833,49 @@ void set_axis_float(XboxGenericMsg& msg, XboxAxis axis, float v)
       {
         case XBOX_AXIS_MAX:
         case XBOX_AXIS_UNKNOWN:
-        case XBOX_AXIS_DPAD_X:
-        case XBOX_AXIS_DPAD_Y:
-        case XBOX_AXIS_TRIGGER:
           break;
+
+        case XBOX_AXIS_TRIGGER:
+          msg.xbox.lt = v < 0 ? int(v*255) : 0;
+          msg.xbox.rt = v > 0 ? int(v*255) : 0;
+          break;
+
+        case XBOX_AXIS_DPAD_X:
+          if (v > 0.5f)
+          {
+            msg.xbox.dpad_left  = false;
+            msg.xbox.dpad_right =  true;
+          }
+          else if (v < -0.5f)
+          {
+            msg.xbox.dpad_left   = true;
+            msg.xbox.dpad_right = false;
+          }
+          else
+          {
+            msg.xbox.dpad_left  = false;
+            msg.xbox.dpad_right = false;
+          }
+          break;
+
+        case XBOX_AXIS_DPAD_Y:
+          if (v > 0.5f)
+          {
+            msg.xbox.dpad_up   = false;
+            msg.xbox.dpad_down = true;
+          }
+          else if (v < -0.5f)
+          {
+            msg.xbox.dpad_up   = true;
+            msg.xbox.dpad_down = false;
+          }
+          else
+          {
+            msg.xbox.dpad_down = false;
+            msg.xbox.dpad_up   = false;
+          }
+          break;
+
         case XBOX_AXIS_X1:
           msg.xbox.x1 = float_to_s16(v); break;
         case XBOX_AXIS_Y1:
@@ -696,11 +903,49 @@ void set_axis(XboxGenericMsg& msg, XboxAxis axis, int v)
       {
         case XBOX_AXIS_MAX:
         case XBOX_AXIS_UNKNOWN:
-        case XBOX_AXIS_DPAD_X:
-        case XBOX_AXIS_DPAD_Y:
-        case XBOX_AXIS_TRIGGER:
-          // FIXME: Doesn't seem right
           break;
+
+        case XBOX_AXIS_TRIGGER:
+          msg.xbox360.lt = v < 0 ? v : 0;
+          msg.xbox360.rt = v > 0 ? v : 0;
+          break;
+
+        case XBOX_AXIS_DPAD_X:
+          if (v > 0)
+          {
+            msg.xbox360.dpad_left  = false;
+            msg.xbox360.dpad_right =  true;
+          }
+          else if (v < 0)
+          {
+            msg.xbox360.dpad_left   = true;
+            msg.xbox360.dpad_right = false;
+          }
+          else
+          {
+            msg.xbox360.dpad_left  = false;
+            msg.xbox360.dpad_right = false;
+          }
+          break;
+
+        case XBOX_AXIS_DPAD_Y:
+          if (v > 0)
+          {
+            msg.xbox360.dpad_up   = false;
+            msg.xbox360.dpad_down =  true;
+          }
+          else if (v < 0)
+          {
+            msg.xbox360.dpad_up   = true;
+            msg.xbox360.dpad_down = false;
+          }
+          else
+          {
+            msg.xbox360.dpad_up   = false;
+            msg.xbox360.dpad_down = false;
+          }
+          break;
+
         case XBOX_AXIS_X1:
           msg.xbox360.x1 = v; break;
         case XBOX_AXIS_Y1:
@@ -721,11 +966,49 @@ void set_axis(XboxGenericMsg& msg, XboxAxis axis, int v)
       {
         case XBOX_AXIS_MAX:
         case XBOX_AXIS_UNKNOWN:
-        case XBOX_AXIS_DPAD_X:
-        case XBOX_AXIS_DPAD_Y:
-        case XBOX_AXIS_TRIGGER:
-          // FIXME: Doesn't seem right
           break;
+
+        case XBOX_AXIS_DPAD_X:
+          if (v > 0)
+          {
+            msg.xbox.dpad_left  = false;
+            msg.xbox.dpad_right =  true;
+          }
+          else if (v < 0)
+          {
+            msg.xbox.dpad_left   = true;
+            msg.xbox.dpad_right = false;
+          }
+          else
+          {
+            msg.xbox.dpad_left  = false;
+            msg.xbox.dpad_right = false;
+          }
+          break;
+
+        case XBOX_AXIS_DPAD_Y:
+          if (v > 0)
+          {
+            msg.xbox.dpad_up   = false;
+            msg.xbox.dpad_down =  true;
+          }
+          else if (v < 0)
+          {
+            msg.xbox.dpad_up   = true;
+            msg.xbox.dpad_down = false;
+          }
+          else
+          {
+            msg.xbox.dpad_up   = false;
+            msg.xbox.dpad_down = false;
+          }
+          break;
+
+        case XBOX_AXIS_TRIGGER:
+          msg.xbox.lt = v < 0 ? v : 0;
+          msg.xbox.rt = v > 0 ? v : 0;
+          break;
+
         case XBOX_AXIS_X1:
           msg.xbox.x1 = v; break;
         case XBOX_AXIS_Y1:
@@ -830,7 +1113,7 @@ XboxAxis string2axis(const std::string& str_)
   else if (str == "dpad_y")
     return XBOX_AXIS_DPAD_Y;
 
-  else if (str == "trigger")
+  else if (str == "trigger" || str == "z" || str == "rudder")
     return XBOX_AXIS_TRIGGER;
 
   else
@@ -867,6 +1150,7 @@ std::string btn2string(XboxButton btn)
   {
     case XBOX_BTN_MAX:
     case XBOX_BTN_UNKNOWN: return "unknown";
+
     case XBOX_BTN_START: return "Start";
     case XBOX_BTN_GUIDE: return "Guide";
     case XBOX_BTN_BACK: return "Back";
@@ -900,6 +1184,50 @@ std::string btn2string(XboxButton btn)
     case XBOX_DPAD_RIGHT: return "DPAD_RIGHT";
   }
   return "unknown";
+}
+
+int get_axis_min(XboxAxis axis)
+{
+  switch(axis)
+  {
+    case XBOX_AXIS_X1: return -32768;
+    case XBOX_AXIS_Y1: return -32768;
+    
+    case XBOX_AXIS_X2: return -32768;
+    case XBOX_AXIS_Y2: return -32768;
+
+    case XBOX_AXIS_LT: return 0;
+    case XBOX_AXIS_RT: return 0;
+
+    case XBOX_AXIS_DPAD_X: return -1;
+    case XBOX_AXIS_DPAD_Y: return -1;
+
+    case XBOX_AXIS_TRIGGER: return -255;
+
+    default: assert(!"never reached");
+  }
+}
+
+int get_axis_max(XboxAxis axis)
+{
+  switch(axis)
+  {
+    case XBOX_AXIS_X1: return 32767;
+    case XBOX_AXIS_Y1: return 32767;
+    
+    case XBOX_AXIS_X2: return 32767;
+    case XBOX_AXIS_Y2: return 32767;
+
+    case XBOX_AXIS_LT: return 255;
+    case XBOX_AXIS_RT: return 255;
+
+    case XBOX_AXIS_DPAD_X: return 1;
+    case XBOX_AXIS_DPAD_Y: return 1;
+
+    case XBOX_AXIS_TRIGGER: return 255;
+
+    default: assert(!"never reached");
+  }
 }
   
 /* EOF */
