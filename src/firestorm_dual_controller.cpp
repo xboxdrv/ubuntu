@@ -25,6 +25,7 @@
 
 #include "helper.hpp"
 #include "firestorm_dual_controller.hpp"
+#include "usb_helper.hpp"
 
 // 044f:b312
 struct Firestorm_vsb_Msg
@@ -82,7 +83,7 @@ struct FirestormMsg
   unsigned int y2 :8;
 } __attribute__((__packed__));
 
-FirestormDualController::FirestormDualController(struct usb_device* dev_, bool is_vsb_) :
+FirestormDualController::FirestormDualController(struct usb_device* dev_, bool is_vsb_, bool try_detach) :
   is_vsb(is_vsb_),
   dev(dev_),
   handle(),
@@ -96,15 +97,12 @@ FirestormDualController::FirestormDualController(struct usb_device* dev_, bool i
   }
   else
   {
-    // FIXME: Do not always do that unrequested
-    usb_detach_kernel_driver_np(handle, 0);
-
-    int err = usb_claim_interface(handle, 0);
+    int err = usb_claim_n_detach_interface(handle, 0, try_detach);
     if (err != 0) 
     {
       std::ostringstream out;
-      out << "Error couldn't claim the USB interface: " << strerror(-err) << std::endl
-          << "Try to run 'rmmod xpad' and start xboxdrv again.";
+      out << "Error couldn't claim the USB interface: " << usb_strerror() << std::endl
+          << "Try to run 'rmmod xpad' and then xboxdrv again or start xboxdrv with the option --detach-kernel-driver.";
       throw std::runtime_error(out.str());
     }
   }

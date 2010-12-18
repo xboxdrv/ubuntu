@@ -22,10 +22,19 @@
 #include <iostream>
 #include <boost/format.hpp>
 #include <boost/bind.hpp>
+
 #include "../xboxmsg.hpp"
+#include "../xpad_device.hpp"
 #include "log.hpp"
 #include "xbox360_usb_thread.hpp"
 #include "xbox360_driver.hpp"
+
+#include "abs_port_in.hpp"
+#include "abs_port_out.hpp"
+#include "btn_port_in.hpp"
+#include "btn_port_out.hpp"
+#include "rel_port_in.hpp"
+#include "rel_port_out.hpp"
 
 struct usb_device* find_usb_device_by_path(const std::string& busid, const std::string& devid) 
 {
