@@ -9,7 +9,7 @@ else:
                                   "-Wall",
                                   "-Wextra",
                                   "-Wnon-virtual-dtor",
-                                  "-Weffc++",
+                                  #"-Weffc++",
                                   #"-Wconversion",
                                   "-Wold-style-cast",
                                   # "-Werror",

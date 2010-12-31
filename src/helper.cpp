@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <boost/format.hpp>
+#include <boost/tokenizer.hpp>
 #include <boost/lexical_cast.hpp>
 #include <sys/time.h>
 #include <stdlib.h>
@@ -51,22 +52,31 @@ std::string to_lower(const std::string &str)
   return lower_impl;
 }
 
-void arg2apply(const std::string& str, const boost::function<void (const std::string&)>& func)
+void split_string_at(const std::string& str, char c, std::string* lhs, std::string* rhs)
 {
-  std::string::const_iterator start = str.begin();
-  for(std::string::const_iterator i = str.begin(); i != str.end(); ++i)
+  std::string::size_type p = str.find(c);
+  if (p == std::string::npos)
   {
-    if (*i == ',')
-    {
-      if (i != start)
-        func(std::string(start, i));
-          
-      start = i+1;
-    }
+    *lhs = str;
   }
-  
-  if (start != str.end())
-    func(std::string(start, str.end()));
+  else
+  {
+    *lhs = str.substr(0, p);
+    *rhs = str.substr(p+1);
+  }
+}
+
+void process_name_value_string(const std::string& str, const boost::function<void (const std::string&, const std::string&)>& func)
+{
+  typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+  tokenizer tokens(str, boost::char_separator<char>(",", "", boost::drop_empty_tokens));
+
+  for(tokenizer::iterator i = tokens.begin(); i != tokens.end(); ++i)
+  {
+    std::string lhs, rhs;
+    split_string_at(*i, '=', &lhs, &rhs);
+    func(lhs, rhs);
+  }
 }
 
 bool is_number(const std::string& str)

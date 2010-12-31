@@ -25,24 +25,24 @@ AxisMap::AxisMap() :
 }
 
 void
-AxisMap::bind(XboxAxis code, const AxisEvent& event)
+AxisMap::bind(XboxAxis code, AxisEventPtr event)
 {
   m_axis_map[XBOX_BTN_UNKNOWN][code] = event;
 }
 
 void
-AxisMap::bind(XboxButton shift_code, XboxAxis code, const AxisEvent& event)
+AxisMap::bind(XboxButton shift_code, XboxAxis code, AxisEventPtr event)
 {
   m_axis_map[shift_code][code] = event;
 }
 
-AxisEvent
+AxisEventPtr
 AxisMap::lookup(XboxAxis code) const
 {
   return m_axis_map[XBOX_BTN_UNKNOWN][code];
 }
 
-AxisEvent
+AxisEventPtr
 AxisMap::lookup(XboxButton shift_code, XboxAxis code) const
 {
   return m_axis_map[shift_code][code];
@@ -56,6 +56,36 @@ AxisMap::clear()
     for(int code = 0; code < XBOX_AXIS_MAX; ++code)
     {
       m_axis_map[shift_code][code] = AxisEvent::invalid();
+    }
+  }
+}
+
+void
+AxisMap::init(uInput& uinput) const
+{
+  for(int shift_code = 0; shift_code < XBOX_BTN_MAX; ++shift_code)
+  {
+    for(int code = 0; code < XBOX_AXIS_MAX; ++code)
+    {
+      if (m_axis_map[shift_code][code])
+      {
+        m_axis_map[shift_code][code]->init(uinput);
+      }
+    }
+  }
+}
+
+void
+AxisMap::update(uInput& uinput, int msec_delta)
+{
+  for(int shift_code = 0; shift_code < XBOX_BTN_MAX; ++shift_code)
+  {
+    for(int code = 0; code < XBOX_AXIS_MAX; ++code)
+    {
+      if (m_axis_map[shift_code][code])
+      {
+        m_axis_map[shift_code][code]->update(uinput, msec_delta);
+      }
     }
   }
 }

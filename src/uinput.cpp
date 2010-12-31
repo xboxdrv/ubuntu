@@ -60,24 +60,52 @@ uInput::uInput(GamepadType type, int vendor_id, int product_id, uInputCfg config
     create_uinput_device(DEVICEID_JOYSTICK);
   }
 
-  switch(type)
+  // LED
+  //ioctl(fd, UI_SET_EVBIT, EV_LED);
+  //ioctl(fd, UI_SET_LEDBIT, LED_MISC);
+
+  if (cfg.force_feedback)
   {
-    case GAMEPAD_XBOX360:
-    case GAMEPAD_XBOX:
-    case GAMEPAD_XBOX360_WIRELESS:
-    case GAMEPAD_FIRESTORM:
-    case GAMEPAD_FIRESTORM_VSB:
-      setup_xbox360_gamepad(type);
-      break;
+    // 
+    get_force_feedback_uinput()->add_ff(FF_RUMBLE);
+    get_force_feedback_uinput()->add_ff(FF_PERIODIC);
+    get_force_feedback_uinput()->add_ff(FF_CONSTANT);
+    get_force_feedback_uinput()->add_ff(FF_RAMP);
 
-    case GAMEPAD_XBOX360_GUITAR:
-      setup_xbox360_guitar();
-      break;
+    // Periodic effect subtypes
+    get_force_feedback_uinput()->add_ff(FF_SINE);
+    get_force_feedback_uinput()->add_ff(FF_TRIANGLE);
+    get_force_feedback_uinput()->add_ff(FF_SQUARE);
+    get_force_feedback_uinput()->add_ff(FF_SAW_UP);
+    get_force_feedback_uinput()->add_ff(FF_SAW_DOWN);
+    get_force_feedback_uinput()->add_ff(FF_CUSTOM);
 
-    default:
-      std::cout << "Unhandled type: " << type << std::endl;
-      exit(EXIT_FAILURE);
-      break;
+    // Gain support
+    get_force_feedback_uinput()->add_ff(FF_GAIN);
+
+    // Unsupported effects
+    // get_force_feedback_uinput()->add_ff(FF_SPRING);
+    // get_force_feedback_uinput()->add_ff(FF_FRICTION);
+    // get_force_feedback_uinput()->add_ff(FF_DAMPER);
+    // get_force_feedback_uinput()->add_ff(FF_INERTIA);
+
+    // FF_GAIN     - relative strength of rumble
+    // FF_RUMBLE   - basic rumble (delay, time)
+    // FF_CONSTANT - envelope, emulate with rumble
+    // FF_RAMP     - same as constant, except strength grows
+    // FF_PERIODIC - envelope
+    // |- FF_SINE      types of periodic effects
+    // |- FF_TRIANGLE
+    // |- FF_SQUARE
+    // |- FF_SAW_UP
+    // |- FF_SAW_DOWN
+    // '- FF_CUSTOM
+  }
+
+  for(int n = 0; n < cfg.input_mapping_count(); ++n)
+  {
+    cfg.get_btn_map(n).init(*this);
+    cfg.get_axis_map(n).init(*this);
   }
 
   for(uInputDevs::iterator i = uinput_devs.begin(); i != uinput_devs.end(); ++i)
@@ -130,127 +158,6 @@ uInput::create_uinput_device(int device_id)
   }
 }
 
-void
-uInput::setup_xbox360_gamepad(GamepadType type)
-{
-  // LED
-  //ioctl(fd, UI_SET_EVBIT, EV_LED);
-  //ioctl(fd, UI_SET_LEDBIT, LED_MISC);
-
-  if (cfg.force_feedback)
-  {
-    // 
-    get_force_feedback_uinput()->add_ff(FF_RUMBLE);
-    get_force_feedback_uinput()->add_ff(FF_PERIODIC);
-    get_force_feedback_uinput()->add_ff(FF_CONSTANT);
-    get_force_feedback_uinput()->add_ff(FF_RAMP);
-
-    // Periodic effect subtypes
-    get_force_feedback_uinput()->add_ff(FF_SINE);
-    get_force_feedback_uinput()->add_ff(FF_TRIANGLE);
-    get_force_feedback_uinput()->add_ff(FF_SQUARE);
-    get_force_feedback_uinput()->add_ff(FF_SAW_UP);
-    get_force_feedback_uinput()->add_ff(FF_SAW_DOWN);
-    get_force_feedback_uinput()->add_ff(FF_CUSTOM);
-
-    // Gain support
-    get_force_feedback_uinput()->add_ff(FF_GAIN);
-
-    // Unsupported effects
-    // get_force_feedback_uinput()->add_ff(FF_SPRING);
-    // get_force_feedback_uinput()->add_ff(FF_FRICTION);
-    // get_force_feedback_uinput()->add_ff(FF_DAMPER);
-    // get_force_feedback_uinput()->add_ff(FF_INERTIA);
-
-    // FF_GAIN     - relative strength of rumble
-    // FF_RUMBLE   - basic rumble (delay, time)
-    // FF_CONSTANT - envelope, emulate with rumble
-    // FF_RAMP     - same as constant, except strength grows
-    // FF_PERIODIC - envelope
-    // |- FF_SINE      types of periodic effects
-    // |- FF_TRIANGLE
-    // |- FF_SQUARE
-    // |- FF_SAW_UP
-    // |- FF_SAW_DOWN
-    // '- FF_CUSTOM
-  }
-
-  // analog sticks
-  add_axis(XBOX_AXIS_X1);
-  add_axis(XBOX_AXIS_Y1);
-
-  add_axis(XBOX_AXIS_X2);
-  add_axis(XBOX_AXIS_Y2);
-
-  // trigger
-  add_button(XBOX_BTN_LT);
-  add_button(XBOX_BTN_RT);
-
-  add_axis(XBOX_AXIS_TRIGGER);
-
-  add_axis(XBOX_AXIS_LT);
-  add_axis(XBOX_AXIS_RT);
-
-  // dpad
-  add_axis(XBOX_AXIS_DPAD_X);
-  add_axis(XBOX_AXIS_DPAD_Y);
-  
-  add_button(XBOX_DPAD_UP);
-  add_button(XBOX_DPAD_DOWN);
-  add_button(XBOX_DPAD_LEFT);
-  add_button(XBOX_DPAD_RIGHT);
-
-  // start/back button
-  add_button(XBOX_BTN_START);
-  add_button(XBOX_BTN_BACK);
-        
-  if (type == GAMEPAD_XBOX360 || 
-      type == GAMEPAD_XBOX360_WIRELESS)
-  {
-    add_button(XBOX_BTN_GUIDE);
-  }
-
-  // face button
-  add_button(XBOX_BTN_A);
-  add_button(XBOX_BTN_B);
-  add_button(XBOX_BTN_X);
-  add_button(XBOX_BTN_Y);
-
-  // shoulder button
-  add_button(XBOX_BTN_LB);
-  add_button(XBOX_BTN_RB);
-
-  // analog stick button
-  add_button(XBOX_BTN_THUMB_L);
-  add_button(XBOX_BTN_THUMB_R);
-}
-
-void
-uInput::setup_xbox360_guitar()
-{
-  // Whammy and Tilt
-  add_axis(XBOX_AXIS_X1);
-  add_axis(XBOX_AXIS_Y1);
-
-  // Dpad
-  add_button(XBOX_DPAD_UP);
-  add_button(XBOX_DPAD_DOWN);
-  add_button(XBOX_DPAD_LEFT);
-  add_button(XBOX_DPAD_RIGHT);
-
-  // Base
-  add_button(XBOX_BTN_START);
-  add_button(XBOX_BTN_BACK);
-  add_button(XBOX_BTN_GUIDE);
-
-  // Fret button
-  add_button(XBOX_BTN_GREEN);
-  add_button(XBOX_BTN_RED);
-  add_button(XBOX_BTN_BLUE);
-  add_button(XBOX_BTN_YELLOW);
-  add_button(XBOX_BTN_ORANGE);
-}
-
 uInput::~uInput()
 {
 }
@@ -266,10 +173,6 @@ uInput::send(XboxGenericMsg& msg)
 
     case XBOX_MSG_XBOX360:
       send(msg.xbox360);
-      break;
-
-    case XBOX_MSG_XBOX360_GUITAR:
-      send(msg.guitar);
       break;
         
     default:
@@ -353,8 +256,8 @@ uInput::send(XboxMsg& msg)
   send_button(XBOX_BTN_X, msg.x);
   send_button(XBOX_BTN_Y, msg.y);
 
-  send_button(XBOX_BTN_WHITE, msg.white);
-  send_button(XBOX_BTN_BLACK, msg.black);
+  send_button(XBOX_BTN_LB, msg.white);
+  send_button(XBOX_BTN_RB, msg.black);
 
   // trigger
   send_button(XBOX_BTN_LT, msg.lt);
@@ -386,33 +289,21 @@ uInput::send(XboxMsg& msg)
   if      (msg.dpad_left)  send_axis(XBOX_AXIS_DPAD_X, -1);
   else if (msg.dpad_right) send_axis(XBOX_AXIS_DPAD_X,  1);
   else                     send_axis(XBOX_AXIS_DPAD_X,  0);
-}
 
-void
-uInput::send(Xbox360GuitarMsg& msg)
-{
-  send_button(XBOX_DPAD_UP,    msg.dpad_up);
-  send_button(XBOX_DPAD_DOWN,  msg.dpad_down);
-  send_button(XBOX_DPAD_LEFT,  msg.dpad_left);
-  send_button(XBOX_DPAD_RIGHT, msg.dpad_right);
-
-  send_button(XBOX_BTN_START, msg.start);
-  send_button(XBOX_BTN_GUIDE, msg.guide);
-  send_button(XBOX_BTN_BACK,  msg.back);
-
-  send_button(XBOX_BTN_GREEN,  msg.green);
-  send_button(XBOX_BTN_RED,    msg.red);
-  send_button(XBOX_BTN_YELLOW, msg.yellow);
-  send_button(XBOX_BTN_BLUE,   msg.blue);
-  send_button(XBOX_BTN_ORANGE, msg.orange);
-
-  send_axis(XBOX_AXIS_X1, msg.whammy);
-  send_axis(XBOX_AXIS_Y1, msg.tilt);
+  send_axis(XBOX_AXIS_A, msg.a);
+  send_axis(XBOX_AXIS_B, msg.b);
+  send_axis(XBOX_AXIS_X, msg.x);
+  send_axis(XBOX_AXIS_Y, msg.y);
+  send_axis(XBOX_AXIS_BLACK, msg.black);
+  send_axis(XBOX_AXIS_WHITE, msg.white);
 }
 
 void
 uInput::update(int msec_delta)
 {
+  cfg.get_btn_map().update(*this, msec_delta);
+  cfg.get_axis_map().update(*this, msec_delta);
+
   for(std::map<UIEvent, RelRepeat>::iterator i = rel_repeat_lst.begin(); i != rel_repeat_lst.end(); ++i)
   {
     i->second.time_count += msec_delta;
@@ -458,15 +349,14 @@ uInput::send_button(XboxButton code, bool value)
       {
         if (button_state[i])
         {
-          const ButtonEvent& event = cfg.get_btn_map().lookup(code, static_cast<XboxButton>(i));
-          if (event.is_valid())
+          const ButtonEventPtr& event = cfg.get_btn_map().lookup(code, static_cast<XboxButton>(i));
+          if (event)
           {
             for(int j = 0; j < XBOX_BTN_MAX; ++j) // iterate over all shift buttons
             {
-              const ButtonEvent& event2 = cfg.get_btn_map().lookup(static_cast<XboxButton>(j),
-                                                                   static_cast<XboxButton>(i));
-              if (event2.is_valid())
-                event2.send(*this, false);
+              cfg.get_btn_map().send(*this, 
+                                     static_cast<XboxButton>(j), static_cast<XboxButton>(i), 
+                                     false);
             }
           }
         }
@@ -477,10 +367,8 @@ uInput::send_button(XboxButton code, bool value)
       {
         if (button_state[i]) // shift button is pressed
         {
-          const ButtonEvent& event = cfg.get_btn_map().lookup(static_cast<XboxButton>(i), code);
-          if (event.is_valid())
+          if (cfg.get_btn_map().send(*this, static_cast<XboxButton>(i), code, value))
           {
-            event.send(*this, value);
             // exit after the first successful event, so we don't send
             // multiple events for the same button
             return;
@@ -489,9 +377,7 @@ uInput::send_button(XboxButton code, bool value)
       }
 
       // Non shifted button events
-      const ButtonEvent& event = cfg.get_btn_map().lookup(code);
-      if (event.is_valid())
-        event.send(*this, value);
+      cfg.get_btn_map().send(*this, code, value);
     }
   }
 }
@@ -537,6 +423,15 @@ uInput::send_key(int device_id, int ev_code, bool value)
 }
 
 void
+uInput::sync()
+{
+  for(uInputDevs::iterator i = uinput_devs.begin(); i != uinput_devs.end(); ++i)
+  {
+    i->second->sync();
+  }
+}
+
+void
 uInput::send_rel_repetitive(const UIEvent& code, int value, int repeat_interval)
 {
   if (repeat_interval < 0)
@@ -577,7 +472,6 @@ uInput::send_axis(XboxAxis code, int32_t value)
   // not just when the axis changed
   if (axis_state[code] != value)
   {
-    int old_value = axis_state[code];
     axis_state[code] = value;
 
     bool event_send = false;
@@ -587,10 +481,10 @@ uInput::send_axis(XboxAxis code, int32_t value)
     {    
       if (button_state[shift])
       {
-        const AxisEvent& event = cfg.get_axis_map().lookup(static_cast<XboxButton>(shift), code);
-        if (event.is_valid())
+        const AxisEventPtr& event = cfg.get_axis_map().lookup(static_cast<XboxButton>(shift), code);
+        if (event)
         {
-          event.send(*this, old_value, value);
+          event->send(*this, value);
           event_send = true;
         }
       }
@@ -599,39 +493,11 @@ uInput::send_axis(XboxAxis code, int32_t value)
     // sending regular axis, if no shifted events where send
     if (!event_send)
     {
-      const AxisEvent& event = cfg.get_axis_map().lookup(code);
-      if (event.is_valid())
+      const AxisEventPtr& event = cfg.get_axis_map().lookup(code);
+      if (event)
       {
-        event.send(*this, old_value, value);
+        event->send(*this, value);
       }
-    }
-  }
-}
-
-void
-uInput::add_axis(XboxAxis code)
-{
-  for(int n = 0; n < cfg.input_mapping_count(); ++n)
-  {
-    for(int shift = 0; shift < XBOX_BTN_MAX; ++shift)
-    {
-      const AxisEvent& event = cfg.get_axis_map(n).lookup(static_cast<XboxButton>(shift), code);
-      if (event.is_valid())
-        event.init(*this);
-    }
-  }
-}
-
-void
-uInput::add_button(XboxButton code)
-{
-  for(int n = 0; n < cfg.input_mapping_count(); ++n)
-  {
-    for(int i = 0; i < XBOX_BTN_MAX; ++i)
-    {
-      const ButtonEvent& event = cfg.get_btn_map(n).lookup(static_cast<XboxButton>(i), code);
-      if (event.is_valid())
-        event.init(*this);
     }
   }
 }
