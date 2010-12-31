@@ -78,6 +78,7 @@ public:
 
   void send_key(int device_id, int ev_code, bool value);
   void send_rel_repetitive(const UIEvent& code, int value, int repeat_interval);
+  void sync();
 
   LinuxUinput* get_uinput(int device_id) const;
   LinuxUinput* get_force_feedback_uinput() const;
@@ -85,15 +86,9 @@ public:
   void create_uinput_device(int device_id);
 
 private:
-  void setup_xbox360_gamepad(GamepadType type);
-  void setup_xbox360_guitar();
-
   void send(Xbox360Msg& msg);
   void send(Xbox360GuitarMsg& msg);
   void send(XboxMsg& msg);
-
-  void add_axis(XboxAxis code);
-  void add_button(XboxButton code);
 
   void send_button(XboxButton code, bool value);
   void send_axis(XboxAxis code, int32_t value);

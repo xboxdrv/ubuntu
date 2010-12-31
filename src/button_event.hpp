@@ -19,57 +19,186 @@
 #ifndef HEADER_XBOXDRV_BUTTON_EVENT_HPP
 #define HEADER_XBOXDRV_BUTTON_EVENT_HPP
 
+#include <boost/shared_ptr.hpp>
+#include <boost/scoped_ptr.hpp>
 #include <string>
+#include <vector>
 
+#include "button_filter.hpp"
 #include "uinput_deviceid.hpp"
 
 class uInput;
+class ButtonEvent;
+class ButtonEventHandler;
 
-struct ButtonEvent
+typedef boost::shared_ptr<ButtonEvent> ButtonEventPtr;
+
+class ButtonEvent
 {
 public:
-  static const int MAX_MODIFIER = 4;
+  static ButtonEventPtr invalid();
+  static ButtonEventPtr create(ButtonEventHandler* handler);
+  static ButtonEventPtr create_key(int code);
+  static ButtonEventPtr create_key();
+  static ButtonEventPtr create_abs(int code);
+  static ButtonEventPtr create_rel(int code);
+  static ButtonEventPtr from_string(const std::string& str);
 
-  static ButtonEvent invalid();
-  static ButtonEvent create_key(int code);
-  static ButtonEvent create_key();
-  static ButtonEvent create_abs(int code);
-  static ButtonEvent create_rel(int code);
-  static ButtonEvent from_string(const std::string& str);
+protected:
+  ButtonEvent(ButtonEventHandler* handler);
+
+public: 
+  void init(uInput& uinput) const;
+  void send(uInput& uinput, bool value);
+  void update(uInput& uinput, int msec_delta);
+  std::string str() const;
+
+  void add_filters(const std::vector<ButtonFilterPtr>& filters);
+  void add_filter(ButtonFilterPtr filter);
+
+private:
+  bool m_last_send_state;
+  bool m_last_raw_state;
+  boost::scoped_ptr<ButtonEventHandler> m_handler;
+  std::vector<ButtonFilterPtr> m_filters;
+};
+
+class ButtonEventHandler
+{
+public:
+  virtual ~ButtonEventHandler() {}
+  
+  virtual void init(uInput& uinput) const =0;
+  virtual void send(uInput& uinput, bool value) =0;
+  virtual void update(uInput& uinput, int msec_delta) =0;
+  virtual std::string str() const =0;
+};
+
+class KeyButtonEventHandler : public ButtonEventHandler
+{
+public:
+  static KeyButtonEventHandler* from_string(const std::string& str);
 
 public:
-  ButtonEvent();
-  
-  void init(uInput& uinput) const;
-  void send(uInput& uinput, bool value) const;
+  KeyButtonEventHandler();
+  KeyButtonEventHandler(int code);
 
-  bool is_valid() const;
+  void init(uInput& uinput) const;
+  void send(uInput& uinput, bool value);
+  void update(uInput& uinput, int msec_delta);
+
+  std::string str() const;
+  
+private:
+  static const int MAX_MODIFIER = 4;
+
+  bool m_state;
+  // Array is terminated by !is_valid()
+  UIEvent m_codes[MAX_MODIFIER+1];
+  UIEvent m_secondary_codes[MAX_MODIFIER+1];
+  int m_hold_threshold;
+  int m_hold_counter;
+};
+
+class AbsButtonEventHandler : public ButtonEventHandler
+{
+public:
+  static AbsButtonEventHandler* from_string(const std::string& str);
+
+public:
+  AbsButtonEventHandler(int code);
+
+  void init(uInput& uinput) const;
+  void send(uInput& uinput, bool value);
+  void update(uInput& uinput, int msec_delta) {}
 
   std::string str() const;
 
 private:
-  /** EV_KEY, EV_ABS, EV_REL */
-  int type;
-
-  union {
-    struct {
-      UIEvent code;
-      int  value;
-      int  repeat;
-    } rel;
-
-    struct {
-      UIEvent code;
-      int value;
-    } abs;
-
-    struct {
-      // Array is terminated by !is_valid()
-      UIEvent codes[MAX_MODIFIER+1];
-    } key;
-  };
+  UIEvent m_code;
+  int m_value;
 };
+
+class RelButtonEventHandler : public ButtonEventHandler
+{
+public:
+  static RelButtonEventHandler* from_string(const std::string& str);
 
+public:
+  RelButtonEventHandler(const UIEvent& code);
+
+  void init(uInput& uinput) const;
+  void send(uInput& uinput, bool value);
+  void update(uInput& uinput, int msec_delta) {}
+
+  std::string str() const;
+
+private:
+  UIEvent m_code;
+
+  int  m_value;
+  int  m_repeat;
+};
+
+class ExecButtonEventHandler : public ButtonEventHandler
+{
+public:
+  static ExecButtonEventHandler* from_string(const std::string& str);
+
+public:
+  ExecButtonEventHandler(const std::vector<std::string>& args);
+
+  void init(uInput& uinput) const;
+  void send(uInput& uinput, bool value);
+  void update(uInput& uinput, int msec_delta) {}
+
+  std::string str() const;
+
+private:
+  std::vector<std::string> m_args;
+};
+
+class MacroButtonEventHandler : public ButtonEventHandler
+{
+public:
+private:
+  struct MacroEvent {
+    enum { kSendOp, kWaitOp, kNull } type; 
+    
+    union {
+      struct {
+        UIEvent event;
+        int     value;
+      } send;
+
+      struct {
+        int msec;
+      } wait;
+    };
+  };
+
+public:
+  static MacroButtonEventHandler* from_string(const std::string& str);
+
+public:
+  MacroButtonEventHandler(const std::vector<MacroEvent>& events);
+
+  void init(uInput& uinput) const;
+  void send(uInput& uinput, bool value);
+  void update(uInput& uinput, int msec_delta);
+
+  std::string str() const;
+
+private:
+  static MacroEvent macro_event_from_string(const std::string& str);
+
+private:
+  std::vector<MacroEvent> m_events;
+  bool m_send_in_progress;
+  int m_countdown;
+  std::vector<MacroEvent>::size_type m_event_counter;
+};
+
 #endif
 
 /* EOF */

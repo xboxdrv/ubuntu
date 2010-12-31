@@ -60,6 +60,8 @@ public:
     
   /** Sets a button/axis mapping that is equal to the xpad kernel driver */
   void mimic_xpad();
+  void mouse();
+  void guitar();
   void set_defaults();
 
   void trigger_as_button();
@@ -67,6 +69,9 @@ public:
 
   void dpad_as_button();
   void dpad_only();
+
+  void set_ui_buttonmap(const std::string& name, const std::string& value);
+  void set_ui_axismap(const std::string& name, const std::string& value);
 };
 
 #endif

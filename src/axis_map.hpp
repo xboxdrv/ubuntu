@@ -27,18 +27,21 @@
 class AxisMap
 {
 private:
-  AxisEvent m_axis_map[XBOX_BTN_MAX][XBOX_AXIS_MAX];
+  AxisEventPtr m_axis_map[XBOX_BTN_MAX][XBOX_AXIS_MAX];
   
 public:
   AxisMap();
 
-  void bind(XboxAxis code, const AxisEvent& event);
-  void bind(XboxButton shift_code, XboxAxis code, const AxisEvent& event);
+  void bind(XboxAxis code, AxisEventPtr event);
+  void bind(XboxButton shift_code, XboxAxis code, AxisEventPtr event);
 
-  AxisEvent lookup(XboxAxis code) const;
-  AxisEvent lookup(XboxButton shift_code, XboxAxis code) const;
+  AxisEventPtr lookup(XboxAxis code) const;
+  AxisEventPtr lookup(XboxButton shift_code, XboxAxis code) const;
 
   void clear();
+
+  void init(uInput& uinput) const;
+  void update(uInput& uinput, int msec_delta);
 };
 
 #endif

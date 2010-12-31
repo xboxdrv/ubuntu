@@ -27,16 +27,22 @@
 class ButtonMap
 {
 private:
-  ButtonEvent btn_map[XBOX_BTN_MAX][XBOX_BTN_MAX];
+  ButtonEventPtr btn_map[XBOX_BTN_MAX][XBOX_BTN_MAX];
   
 public:
   ButtonMap();
 
-  void bind(XboxButton code, const ButtonEvent& event);
-  void bind(XboxButton shift_code, XboxButton code, const ButtonEvent& event);
+  void bind(XboxButton code, ButtonEventPtr event);
+  void bind(XboxButton shift_code, XboxButton code, ButtonEventPtr event);
 
-  ButtonEvent lookup(XboxButton code) const;
-  ButtonEvent lookup(XboxButton shift_code, XboxButton code) const;
+  ButtonEventPtr lookup(XboxButton code) const;
+  ButtonEventPtr lookup(XboxButton shift_code, XboxButton code) const;
+
+  void init(uInput& uinput) const;
+
+  bool send(uInput& uinput, XboxButton code, bool value) const;
+  bool send(uInput& uinput, XboxButton shift_code, XboxButton code, bool value) const;
+  void update(uInput& uinput, int msec_delta);
 
   void clear();
 };

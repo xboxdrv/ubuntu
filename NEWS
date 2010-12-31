@@ -1,3 +1,36 @@
+xboxdrv 0.6.2 - (31/Dec/2010)
+=============================
+
+* merged Xbox360 guitar handling into the regular Xbox360 controller
+  handling, use --guitar to get the old mapping back
+* added generic event filter framework
+* added toggle button filter
+* added invert button filter
+* added auto fire button filter
+* added log filter for button and axis
+* added invert axis filter
+* added sensitivity axis filter
+* added relative axis filter
+* added response curve axis filter
+* added deadzone axis filter
+* added calibration axis filter
+* added ability to send different events depending on how long a
+  button was pressed
+* added ability to launch a program on button press
+* added ability to replay a macro on a button press
+* added ability to launch a child program from within xboxdrv, making
+  wrapper scripts easier to write without race conditions
+* added --option NAME=VALUE to allow INI-style config options from
+  command line
+* added --evdev-debug to print out all received events from evdev
+* added --evdev-no-grab to avoid a full grab on the event device
+* unified ini and command line parsing some more
+* Mad Catz Xbox controller - MW2 controller support added
+* added support for Xbox1 analog buttons, use --ui-axismap with A, B,
+  X, Y, black, white
+* give proper error message when the Play&Charge kit is used
+
+
 xboxdrv 0.6.1 - (21/Dec/2010)
 ==============================
 
