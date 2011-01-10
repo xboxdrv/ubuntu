@@ -18,9 +18,10 @@
 
 #include "headset.hpp"
 
+#include <boost/format.hpp>
 #include <iostream>
 #include <fstream>
-#include <boost/format.hpp>
+#include <string.h>
 
 Headset::Headset(struct usb_dev_handle* handle, 
                  bool debug,
