@@ -1,3 +1,19 @@
+xboxdrv 0.6.3 - (10/Jan/2011)
+=============================
+
+* chatpad support (still rough), special thanks to Jani Virta, Andy
+  Kirkham, dwomac and GAFBlizzard who helped make it possible
+* added  --chatpad, --chatpad-no-init and --chatpad-debug
+* added --headset, --headset-dump FILE and --headset-play FILE, for
+  experimentation only
+* added optional abs:/rel:/key: prefixes to --ui-axismap
+* added input filters for --axismap and --buttonmap
+* fixed multiple bugs that made it impossible to assign events to
+  specific devices
+* fixed axis getting stuck when using a shift key
+* fixed incorrect error handling on fork()/exec()
+
+
 xboxdrv 0.6.2 - (31/Dec/2010)
 =============================
 

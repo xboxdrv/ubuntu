@@ -52,7 +52,14 @@ Options::Options() :
   dpad_rotation(0),
   evdev_device(),
   evdev_grab(true),
-  evdev_debug(false)
+  evdev_debug(false),
+  chatpad(false),
+  chatpad_no_init(false),
+  chatpad_debug(false),
+  headset(false),
+  headset_debug(false),
+  headset_dump(),
+  headset_play()
 {
 }
 

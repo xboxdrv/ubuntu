@@ -33,11 +33,11 @@ ButtonFilter::from_string(const std::string& str)
   if (p != std::string::npos) 
     rest = str.substr(p+1);
 
-  if (filtername == "toggle")
+  if (filtername == "toggle" || filtername == "tog")
   {
     return ButtonFilterPtr(new ToggleButtonFilter);
   }
-  else if (filtername == "invert")
+  else if (filtername == "invert" || filtername == "inv")
   {
     return ButtonFilterPtr(new InvertButtonFilter);
   }

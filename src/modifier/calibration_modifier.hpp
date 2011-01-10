@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -16,37 +16,27 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef HEADER_XBOXDRV_UINPUT_DEVICEID_HPP
-#define HEADER_XBOXDRV_UINPUT_DEVICEID_HPP
+#ifndef HEADER_XBOXDRV_MODIFIER_CALIBRATION_MODIFIER_HPP
+#define HEADER_XBOXDRV_MODIFIER_CALIBRATION_MODIFIER_HPP
 
-#include <boost/lexical_cast.hpp>
+#include <vector>
 
-enum {
-  DEVICEID_INVALID  = -4,
-  DEVICEID_KEYBOARD = -3,
-  DEVICEID_MOUSE    = -2,
-  DEVICEID_AUTO     = -1,
-  DEVICEID_JOYSTICK =  0
-};
+#include "modifier.hpp"
 
-struct UIEvent 
+class CalibrationModifier : public Modifier
 {
-public:
-  static UIEvent create(int device_id, int type, int code);
-  static UIEvent invalid();
+private:
+  std::vector<CalibrationMapping> m_calibration_map;
 
 public:
-  void resolve_device_id();
-  bool is_valid() const;
-  bool operator<(const UIEvent& rhs)  const;
+  CalibrationModifier(const std::vector<CalibrationMapping>& calibration_map);
 
-  int device_id;
-  int type;
-  int code;
+  void update(int msec_delta, XboxGenericMsg& msg);
+
+private:
+  CalibrationModifier(const CalibrationModifier&);
+  CalibrationModifier& operator=(const CalibrationModifier&);
 };
-
-/** Takes "1-BTN_A" splits it into "1", "BTN_A" */
-void split_event_name(const std::string& str, std::string* event_str, int* device_id);
 
 #endif
 

@@ -22,16 +22,25 @@
 #include <stdexcept>
 #include <sstream>
 #include <iostream>
+#include <fstream>
 #include <boost/format.hpp>
 
-#include "options.hpp"
+#include "chatpad.hpp"
+#include "headset.hpp"
 #include "helper.hpp"
+#include "options.hpp"
 #include "usb_helper.hpp"
 #include "usb_read_thread.hpp"
 #include "xbox360_controller.hpp"
 #include "xboxmsg.hpp"
 
-Xbox360Controller::Xbox360Controller(struct usb_device* dev_, bool try_detach) :
+Xbox360Controller::Xbox360Controller(struct usb_device* dev_, 
+                                     bool chatpad, bool chatpad_no_init, bool chatpad_debug, 
+                                     bool headset, 
+                                     bool headset_debug, 
+                                     const std::string& headset_dump,
+                                     const std::string& headset_play,
+                                     bool try_detach) :
   dev(dev_),
   dev_type(),
   handle(),
@@ -101,11 +110,34 @@ Xbox360Controller::Xbox360Controller(struct usb_device* dev_, bool try_detach) :
 
   read_thread = std::auto_ptr<USBReadThread>(new USBReadThread(handle, endpoint_in, 32));
   read_thread->start_thread();
+
+  if (chatpad)
+  {
+    m_chatpad.reset(new Chatpad(handle, dev->descriptor.bcdDevice, chatpad_no_init, chatpad_debug));
+    m_chatpad->send_init();
+    m_chatpad->start_threads();
+  }
+
+  if (headset)
+  {
+    m_headset.reset(new Headset(handle, headset_debug, headset_dump, headset_play));
+  }
 }
 
 Xbox360Controller::~Xbox360Controller()
 {
   read_thread->stop_thread();
+
+  if (m_chatpad.get())
+  {
+    m_chatpad.reset();
+  }
+
+  if (m_headset.get())
+  {
+    m_headset.reset();
+  }
+
   usb_release_interface(handle, 0); 
   usb_close(handle);
 }

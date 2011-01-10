@@ -23,10 +23,12 @@
 #include <map>
 #include <vector>
 
-#include "xpad_device.hpp"
-#include "uinput_cfg.hpp"
-#include "modifier.hpp"
 #include "evdev_absmap.hpp"
+#include "modifier.hpp"
+#include "modifier/autofire_modifier.hpp"
+#include "modifier/relativeaxis_modifier.hpp"
+#include "uinput_cfg.hpp"
+#include "xpad_device.hpp"
 
 class Options
 {
@@ -81,6 +83,15 @@ public:
   std::map<int, XboxButton> evdev_keymap;
   bool evdev_grab;
   bool evdev_debug;
+
+  bool chatpad;
+  bool chatpad_no_init;
+  bool chatpad_debug;
+
+  bool headset;
+  bool headset_debug;
+  std::string headset_dump;
+  std::string headset_play;
 
   std::vector<std::string> exec;
 
