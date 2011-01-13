@@ -1,3 +1,9 @@
+xboxdrv (0.6.4-1) maverick; urgency=low
+
+  * xboxdrv 0.6.4 release
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Thu, 13 Jan 2011 22:54:41 +0100
+
 xboxdrv (0.6.3-2) maverick; urgency=low
 
   * Fixed missing include
