@@ -19,8 +19,8 @@
 #include "headset.hpp"
 
 #include <boost/format.hpp>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <string.h>
 
 Headset::Headset(struct usb_dev_handle* handle, 
@@ -118,9 +118,9 @@ Headset::read_thread(const std::string& filename, bool debug)
   
     if (!*out)
     {
-      std::ostringstream out;
-      out << "[headset] " << filename << ": " << strerror(errno);
-      throw std::runtime_error(out.str());
+      std::ostringstream outstr;
+      outstr << "[headset] " << filename << ": " << strerror(errno);
+      throw std::runtime_error(outstr.str());
     }
   }
 
@@ -130,9 +130,9 @@ Headset::read_thread(const std::string& filename, bool debug)
     const int ret = usb_interrupt_read(m_handle, 3, reinterpret_cast<char*>(data), sizeof(data), 0);
     if (ret < 0)
     {
-      std::ostringstream out;
-      out << "[headset] " << usb_strerror();
-      throw std::runtime_error(out.str());
+      std::ostringstream outstr;
+      outstr << "[headset] " << usb_strerror();
+      throw std::runtime_error(outstr.str());
     }
     else
     {
