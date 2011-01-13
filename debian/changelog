@@ -1,8 +1,14 @@
-xboxdrv (0.6.4-1~lucid1) lucid; urgency=low
+xboxdrv (0.6.4-2~lucid1) lucid; urgency=low
 
   * xboxdrv 0.6.4 backport
 
  -- Ingo Ruhnke <grumbel@gmx.de>  Thu, 13 Jan 2011 22:59:56 +0100
+
+xboxdrv (0.6.4-2) maverick; urgency=low
+
+  * Fixed debhelper dependency
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Thu, 13 Jan 2011 23:08:15 +0100
 
 xboxdrv (0.6.4-1) maverick; urgency=low
 
