@@ -1,3 +1,9 @@
+xboxdrv (0.6.5-1) maverick; urgency=low
+
+  * xboxdrv 0.6.5 release
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Sat, 22 Jan 2011 12:32:14 +0100
+
 xboxdrv (0.6.4-2) maverick; urgency=low
 
   * Fixed debhelper dependency
