@@ -18,8 +18,34 @@
 
 #include "modifier/dpad_rotation_modifier.hpp"
 
-#include "xboxmsg.hpp"
+#include <stdexcept>
+#include <boost/lexical_cast.hpp>
+
+DpadRotationModifier*
+DpadRotationModifier::from_string(const std::vector<std::string>& args)
+{
+  if (args.size() != 1)
+  {
+    throw std::runtime_error("DpadRotationModifier expects exactly one argument");
+  }
+  else
+  {
+    return DpadRotationModifier::from_string(args[0]);
+  }
+}
 
+DpadRotationModifier*
+DpadRotationModifier::from_string(const std::string& value)
+{
+  int degree = boost::lexical_cast<int>(value);
+  degree /= 45;
+  degree %= 8;
+  if (degree < 0) 
+    degree += 8;
+    
+  return new DpadRotationModifier(degree);
+}
+
 DpadRotationModifier::DpadRotationModifier(int dpad_rotation) :
   m_dpad_rotation(dpad_rotation)
 {
@@ -121,6 +147,14 @@ DpadRotationModifier::update(int msec_delta, XboxGenericMsg& msg)
         break;
     }
   }
+}
+
+std::string
+DpadRotationModifier::str() const
+{
+  std::ostringstream out;
+  out << "dpad-rotation:" << m_dpad_rotation;
+  return out.str();
 }
 
 /* EOF */

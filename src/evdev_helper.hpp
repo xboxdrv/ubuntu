@@ -19,9 +19,10 @@
 #ifndef HEADER_EVDEV_HELPER_HPP
 #define HEADER_EVDEV_HELPER_HPP
 
-#include <string>
+#include <X11/Xlib.h>
 
-#include "uinput_deviceid.hpp"
+#include "enum_box.hpp"
+#include "ui_event.hpp"
 
 void str2event(const std::string& name, int& type, int& code);
 int  get_event_type(const std::string& str);
@@ -37,6 +38,38 @@ int str2rel(const std::string& str);
 UIEvent str2key_event(const std::string& str);
 UIEvent str2rel_event(const std::string& str);
 UIEvent str2abs_event(const std::string& str);
+
+class EvDevRelEnum : public EnumBox<int>
+{
+public:
+  EvDevRelEnum();
+};
+
+class EvDevAbsEnum : public EnumBox<int>
+{
+public:
+  EvDevAbsEnum();
+};
+
+class EvDevKeyEnum : public EnumBox<int>
+{
+public:
+  EvDevKeyEnum();
+};
+
+class X11KeysymEnum : public EnumBox<int>
+{
+public:
+  X11KeysymEnum();
+
+private:
+  void process_keymap(Display* dpy);
+};
+
+extern EvDevRelEnum  evdev_rel_names;
+extern EvDevKeyEnum  evdev_key_names;
+extern EvDevAbsEnum  evdev_abs_names;
+const X11KeysymEnum& get_x11keysym_names();
 
 #endif
 

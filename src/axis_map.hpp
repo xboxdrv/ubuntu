@@ -19,8 +19,6 @@
 #ifndef HEADER_XBOXDRV_AXIS_MAP_HPP
 #define HEADER_XBOXDRV_AXIS_MAP_HPP
 
-#include <assert.h>
-
 #include "axis_event.hpp"
 #include "xboxmsg.hpp"
 
@@ -40,8 +38,8 @@ public:
 
   void clear();
 
-  void init(uInput& uinput) const;
-  void update(uInput& uinput, int msec_delta);
+  void init(UInput& uinput, int slot, bool extra_devices) const;
+  void update(UInput& uinput, int msec_delta);
 };
 
 #endif

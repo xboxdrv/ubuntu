@@ -19,15 +19,13 @@
 #ifndef HEADER_XBOXDRV_BUTTON_EVENT_HPP
 #define HEADER_XBOXDRV_BUTTON_EVENT_HPP
 
-#include <boost/shared_ptr.hpp>
 #include <boost/scoped_ptr.hpp>
-#include <string>
 #include <vector>
 
 #include "button_filter.hpp"
-#include "uinput_deviceid.hpp"
+#include "ui_event.hpp"
 
-class uInput;
+class UInput;
 class ButtonEvent;
 class ButtonEventHandler;
 
@@ -48,9 +46,9 @@ protected:
   ButtonEvent(ButtonEventHandler* handler);
 
 public: 
-  void init(uInput& uinput) const;
-  void send(uInput& uinput, bool value);
-  void update(uInput& uinput, int msec_delta);
+  void init(UInput& uinput, int slot, bool extra_devices);
+  void send(UInput& uinput, bool value);
+  void update(UInput& uinput, int msec_delta);
   std::string str() const;
 
   void add_filters(const std::vector<ButtonFilterPtr>& filters);
@@ -68,9 +66,9 @@ class ButtonEventHandler
 public:
   virtual ~ButtonEventHandler() {}
   
-  virtual void init(uInput& uinput) const =0;
-  virtual void send(uInput& uinput, bool value) =0;
-  virtual void update(uInput& uinput, int msec_delta) =0;
+  virtual void init(UInput& uinput, int slot, bool extra_devices) =0;
+  virtual void send(UInput& uinput, bool value) =0;
+  virtual void update(UInput& uinput, int msec_delta) =0;
   virtual std::string str() const =0;
 };
 
@@ -83,9 +81,9 @@ public:
   KeyButtonEventHandler();
   KeyButtonEventHandler(int code);
 
-  void init(uInput& uinput) const;
-  void send(uInput& uinput, bool value);
-  void update(uInput& uinput, int msec_delta);
+  void init(UInput& uinput, int slot, bool extra_devices);
+  void send(UInput& uinput, bool value);
+  void update(UInput& uinput, int msec_delta);
 
   std::string str() const;
   
@@ -108,9 +106,9 @@ public:
 public:
   AbsButtonEventHandler(int code);
 
-  void init(uInput& uinput) const;
-  void send(uInput& uinput, bool value);
-  void update(uInput& uinput, int msec_delta) {}
+  void init(UInput& uinput, int slot, bool extra_devices);
+  void send(UInput& uinput, bool value);
+  void update(UInput& uinput, int msec_delta) {}
 
   std::string str() const;
 
@@ -127,9 +125,9 @@ public:
 public:
   RelButtonEventHandler(const UIEvent& code);
 
-  void init(uInput& uinput) const;
-  void send(uInput& uinput, bool value);
-  void update(uInput& uinput, int msec_delta) {}
+  void init(UInput& uinput, int slot, bool extra_devices);
+  void send(UInput& uinput, bool value);
+  void update(UInput& uinput, int msec_delta) {}
 
   std::string str() const;
 
@@ -148,9 +146,9 @@ public:
 public:
   ExecButtonEventHandler(const std::vector<std::string>& args);
 
-  void init(uInput& uinput) const;
-  void send(uInput& uinput, bool value);
-  void update(uInput& uinput, int msec_delta) {}
+  void init(UInput& uinput, int slot, bool extra_devices);
+  void send(UInput& uinput, bool value);
+  void update(UInput& uinput, int msec_delta) {}
 
   std::string str() const;
 
@@ -183,9 +181,9 @@ public:
 public:
   MacroButtonEventHandler(const std::vector<MacroEvent>& events);
 
-  void init(uInput& uinput) const;
-  void send(uInput& uinput, bool value);
-  void update(uInput& uinput, int msec_delta);
+  void init(UInput& uinput, int slot, bool extra_devices);
+  void send(UInput& uinput, bool value);
+  void update(UInput& uinput, int msec_delta);
 
   std::string str() const;
 

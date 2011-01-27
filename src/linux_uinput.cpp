@@ -16,27 +16,22 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "linux_uinput.hpp"
+
 #include <boost/format.hpp>
-#include <assert.h>
-#include <iostream>
-#include <sstream>
-#include <stdexcept>
 #include <errno.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+
 #include "evdev_helper.hpp"
 #include "force_feedback_handler.hpp"
-#include "linux_uinput.hpp"
+#include "raise_exception.hpp"
 
 LinuxUinput::LinuxUinput(DeviceType device_type, const std::string& name_, uint16_t vendor_, uint16_t product_) :
   m_device_type(device_type),
   name(name_),
   vendor(vendor_),
   product(product_),
+  m_finished(false),
   fd(-1),
   user_dev(),
   key_bit(false),
@@ -48,6 +43,8 @@ LinuxUinput::LinuxUinput(DeviceType device_type, const std::string& name_, uint1
   ff_callback(),
   needs_sync(true)
 {
+  log_debug(name << " " << vendor << ":" << product);
+
   std::fill_n(abs_lst, ABS_CNT, false);
   std::fill_n(rel_lst, REL_CNT, false);
   std::fill_n(key_lst, KEY_CNT, false);
@@ -57,7 +54,7 @@ LinuxUinput::LinuxUinput(DeviceType device_type, const std::string& name_, uint1
 
   // Open the input device
   const char* uinput_filename[] = { "/dev/input/uinput", "/dev/uinput", "/dev/misc/uinput" };
-  const int uinput_filename_count = (sizeof(uinput_filename)/sizeof(char*));
+  const int uinput_filename_count = (sizeof(uinput_filename)/sizeof(const char*));
 
   std::ostringstream str;
   for (int i = 0; i < uinput_filename_count; ++i)
@@ -74,17 +71,19 @@ LinuxUinput::LinuxUinput(DeviceType device_type, const std::string& name_, uint1
 
   if (fd < 0)
   {
-    std::cout << "\nError: No stuitable uinput device found, tried:" << std::endl;
-    std::cout << std::endl;
-    std::cout << str.str();
-    std::cout << "" << std::endl;
-    std::cout << "Troubleshooting:" << std::endl;
-    std::cout << "  * make sure uinput kernel module is loaded " << std::endl;
-    std::cout << "  * make sure joydev kernel module is loaded " << std::endl;
-    std::cout << "  * make sure you have permissions to access the uinput device" << std::endl;
-    std::cout << "  * start the driver with ./xboxdrv -v --no-uinput to see if the driver itself works" << std::endl;
-    std::cout << "" << std::endl;
-    exit(EXIT_FAILURE);
+    std::ostringstream out;
+    out << "\nError: No stuitable uinput device found, tried:" << std::endl;
+    out << std::endl;
+    out << str.str();
+    out << "" << std::endl;
+    out << "Troubleshooting:" << std::endl;
+    out << "  * make sure uinput kernel module is loaded " << std::endl;
+    out << "  * make sure joydev kernel module is loaded " << std::endl;
+    out << "  * make sure you have permissions to access the uinput device" << std::endl;
+    out << "  * start the driver with ./xboxdrv -v --no-uinput to see if the driver itself works" << std::endl;
+    out << "" << std::endl;
+
+    throw std::runtime_error(out.str());
   }
 }
 
@@ -97,7 +96,7 @@ LinuxUinput::~LinuxUinput()
 void
 LinuxUinput::add_abs(uint16_t code, int min, int max, int fuzz, int flat)
 {
-  // std::cout << "add_abs: " << abs2str(code) << " (" << min << ", " << max << ") " << name << std::endl;
+  log_debug("add_abs: " << abs2str(code) << " (" << min << ", " << max << ") " << name);
 
   if (!abs_lst[code])
   {
@@ -121,7 +120,7 @@ LinuxUinput::add_abs(uint16_t code, int min, int max, int fuzz, int flat)
 void
 LinuxUinput::add_rel(uint16_t code)
 {
-  // std::cout << "add_rel: " << rel2str(code) << " " << name << std::endl;
+  log_debug("add_rel: " << rel2str(code) << " " << name);
 
   if (!rel_lst[code])
   {
@@ -140,7 +139,7 @@ LinuxUinput::add_rel(uint16_t code)
 void
 LinuxUinput::add_key(uint16_t code)
 {
-  // std::cout << "add_key: " << btn2str(code) << " " << name << std::endl;
+  log_debug("add_key: " << key2str(code) << " " << name);
 
   if (!key_lst[code])
   {
@@ -184,6 +183,8 @@ LinuxUinput::set_ff_callback(const boost::function<void (uint8_t, uint8_t)>& cal
 void
 LinuxUinput::finish()
 {
+  assert(!m_finished);
+
   // Create some mandatory events that are needed for the kernel/Xorg
   // to register the device as its proper type
   switch(m_device_type)
@@ -199,7 +200,7 @@ LinuxUinput::finish()
       break;
 
     case kJoystickDevice:
-      // FIXME: the kernel and SDL have different rules for joystick
+      // the kernel and SDL have different rules for joystick
       // detection, so this is more a hack then a proper solution
       if (!key_lst[BTN_A])
       {
@@ -224,20 +225,35 @@ LinuxUinput::finish()
   user_dev.id.vendor  = vendor;
   user_dev.id.product = product;
 
+  log_debug("'" << user_dev.name << "' " << user_dev.id.vendor << ":" << user_dev.id.product);
+
   if (ff_bit)
     user_dev.ff_effects_max = ff_handler->get_max_effects();
 
   //std::cout << "Finalizing uinput: '" << user_dev.name << "'" << std::endl;
 
-  if (write(fd, &user_dev, sizeof(user_dev)) < 0)
-    throw std::runtime_error("uinput:finish: " + name + ": " + strerror(errno));
+  {
+    int write_ret = write(fd, &user_dev, sizeof(user_dev));
+    if (write_ret < 0)
+    {
+      throw std::runtime_error("uinput:finish: " + name + ": " + strerror(errno));
+    }
+    else
+    {
+      log_debug("write return value: " << write_ret);
+    }
+  }
 
+  // FIXME: check that the config isn't empty and give a more
+  // meaningful message when it is
+
+  log_debug("finish");
   if (ioctl(fd, UI_DEV_CREATE))
   {
-    std::ostringstream out;
-    out << "LinuxUinput: Unable to create UINPUT device: '" << name << "': " << strerror(errno);
-    throw std::runtime_error(out.str());
+    raise_exception(std::runtime_error, "unable to create uinput device: '" << name << "': " << strerror(errno));
   }
+
+  m_finished = true;
 }
 
 void
@@ -271,7 +287,7 @@ LinuxUinput::sync()
 }
 
 void
-LinuxUinput::update_force_feedback(int msec_delta)
+LinuxUinput::update(int msec_delta)
 {
   if (ff_bit)
   {
@@ -279,10 +295,7 @@ LinuxUinput::update_force_feedback(int msec_delta)
 
     ff_handler->update(msec_delta);
 
-    if (0)
-      std::cout << boost::format("%5d %5d") 
-        % ff_handler->get_weak_magnitude() 
-        % ff_handler->get_strong_magnitude() << std::endl;
+    log_info(boost::format("%5d %5d") % ff_handler->get_strong_magnitude() % ff_handler->get_weak_magnitude());
 
     if (ff_callback)
     {
@@ -297,7 +310,9 @@ LinuxUinput::update_force_feedback(int msec_delta)
     if (ret < 0)
     {
       if (errno != EAGAIN)
-        std::cout << "Error: " << strerror(errno) << " " << ret << std::endl;
+      {
+        log_error("failed to read from file description: " << ret << ": " << strerror(errno));
+      }
     }
     else if (ret == sizeof(ev))
     { // successful read
@@ -309,7 +324,7 @@ LinuxUinput::update_force_feedback(int msec_delta)
           if (ev.code == LED_MISC)
           {
             // FIXME: implement this
-            std::cout << "unimplemented: Set LED status: " << ev.value << std::endl;
+            log_info("unimplemented: set LED status: " << ev.value);
           }
           break;
 
@@ -368,19 +383,19 @@ LinuxUinput::update_force_feedback(int msec_delta)
             break;
 
             default: 
-              std::cout << "Unhandled event code read" << std::endl;
+              log_warn("unhandled event code read");
               break;
           }
           break;
 
         default:
-          std::cout << "Unhandled event type read: " << ev.type << std::endl;
+          log_warn("unhandled event type read: " << ev.type);
           break;
       }
     }
     else
     {
-      std::cout << "uInput::update: short read: " << ret << std::endl;
+      log_warn("short read: " << ret);
     }
   }
 }

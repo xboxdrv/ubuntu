@@ -19,32 +19,34 @@
 #ifndef HEADER_USB_READ_THREAD_HPP
 #define HEADER_USB_READ_THREAD_HPP
 
-#include <memory>
-#include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/condition.hpp>
 #include <boost/shared_array.hpp>
 #include <queue>
+#include <libusb.h>
 
+// FIXME: USBReadThread was created for libusb-0.1, as we where losing
+// events otherwise for some reason, might no longer be needed with
+// libusb-1.0
 class USBReadThread
 {
 private:
-  struct usb_dev_handle* m_handle;
+  libusb_device_handle* m_handle;
   const int m_read_endpoint;
   const int m_read_length;
 
-  struct Paket 
+  struct Packet 
   {
     boost::shared_array<uint8_t> data;
     int length;
 
-    Paket() :
+    Packet() :
       data(),
       length()
     {}
   };
 
-  typedef std::queue<Paket> Buffer;
+  typedef std::queue<Packet> Buffer;
   Buffer m_read_buffer;
   boost::mutex m_read_buffer_mutex;
   boost::condition m_read_buffer_cond;
@@ -67,10 +69,10 @@ private:
   bool m_stop;
 
 public:
-  USBReadThread(struct usb_dev_handle* handle, int endpoint, int len);
+  USBReadThread(libusb_device_handle* handle, int endpoint, int len);
   ~USBReadThread();
 
-  int read(uint8_t* data, int len, int timeout);
+  int read(uint8_t* data, int len, int* transferred, int timeout);
 
   void start_thread();
   void stop_thread();

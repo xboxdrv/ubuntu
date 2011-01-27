@@ -30,8 +30,8 @@ XPadDevice xpad_devices[] = {
   { GAMEPAD_XBOX,             0x045e, 0x0285, "Microsoft X-Box pad (Japan)" },
   { GAMEPAD_XBOX,             0x045e, 0x0285, "Microsoft Xbox Controller S" },
   { GAMEPAD_XBOX,             0x045e, 0x0287, "Microsoft Xbox Controller S" },
-  { GAMEPAD_XBOX,             0x045e, 0x0289, "Microsoft X-Box pad v2 (US)" }, // duplicate
-  { GAMEPAD_XBOX,             0x045e, 0x0289, "Microsoft Xbox Controller S" }, // duplicate
+  { GAMEPAD_XBOX,             0x045e, 0x0289, "Microsoft Corp. Xbox Controller S" },
+  // { GAMEPAD_XBOX,          0x045e, 0x0288, "Microsoft Corp. Xbox Controller S Hub" },  memory card slot
   { GAMEPAD_XBOX,             0x046d, 0xca84, "Logitech Xbox Cordless Controller" },
   { GAMEPAD_XBOX,             0x046d, 0xca88, "Logitech Compact Controller for Xbox" },
   { GAMEPAD_XBOX,             0x05fd, 0x1007, "Mad Catz Controller (unverified)" },
@@ -90,8 +90,24 @@ XPadDevice xpad_devices[] = {
   { GAMEPAD_FIRESTORM_VSB,    0x044f, 0xb312, "ThrustMaster, Inc. Firestorm Dual Power (vs b)" },
 
   { GAMEPAD_SAITEK_P2500,     0x06a3, 0xff0c, "Saitek P2500" },
+
+  { GAMEPAD_PLAYSTATION3_USB, 0x054c, 0x0268, "PLAYSTATION(R)3 Controller" }
 };
 
 const int xpad_devices_count = sizeof(xpad_devices)/sizeof(XPadDevice);
+
+bool find_xpad_device(uint16_t idVendor, uint16_t idProduct, XPadDevice* dev_type)
+{
+  for(int i = 0; i < xpad_devices_count; ++i)
+  {
+    if (idVendor  == xpad_devices[i].idVendor &&
+        idProduct == xpad_devices[i].idProduct)
+    {
+      *dev_type = xpad_devices[i];
+      return true;
+    }
+  }
+  return false;
+}
 
 /* EOF */

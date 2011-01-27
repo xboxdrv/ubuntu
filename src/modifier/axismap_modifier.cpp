@@ -18,14 +18,63 @@
 
 #include "axismap_modifier.hpp"
 
+#include <boost/tokenizer.hpp>
+#include <sstream>
+
 /** converts the arbitary range to [-1,1] */
 inline float to_float(int value, int min, int max)
 {
   return static_cast<float>(value - min) / static_cast<float>(max - min) * 2.0f - 1.0f;
 }
+
+AxisMapping
+AxisMapping::from_string(const std::string& lhs_, const std::string& rhs)
+{
+  std::string lhs = lhs_;
+  AxisMapping mapping;
 
-AxismapModifier::AxismapModifier(const std::vector<AxisMapping>& axismap) :
-  m_axismap(axismap)
+  mapping.invert = false;
+  mapping.lhs = XBOX_AXIS_UNKNOWN;
+  mapping.rhs = XBOX_AXIS_UNKNOWN;
+
+  if (lhs[0] == '-')
+  {
+    mapping.invert = true;
+    lhs = lhs.substr(1);
+  }
+
+  typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+  tokenizer tokens(lhs, boost::char_separator<char>("^", "", boost::keep_empty_tokens));
+  int idx = 0;
+  for(tokenizer::iterator t = tokens.begin(); t != tokens.end(); ++t, ++idx)
+  {
+    switch(idx)
+    {
+      case 0:  mapping.lhs = string2axis(*t); break;
+      default: mapping.filters.push_back(AxisFilter::from_string(*t));
+    }
+  }
+
+  if (rhs.empty())
+  {
+    mapping.rhs = mapping.lhs;
+  }
+  else
+  {
+    mapping.rhs = string2axis(rhs);
+  }
+
+  if (mapping.lhs == XBOX_AXIS_UNKNOWN ||
+      mapping.rhs == XBOX_AXIS_UNKNOWN)
+  {
+    throw std::runtime_error("Couldn't convert string \"" + lhs + "=" + rhs + "\" to axis mapping");
+  }
+
+  return mapping;
+}
+
+AxismapModifier::AxismapModifier() :
+  m_axismap()
 {
 }
 
@@ -73,4 +122,46 @@ AxismapModifier::update(int msec_delta, XboxGenericMsg& msg)
   msg = newmsg;
 }
 
+void
+AxismapModifier::add(const AxisMapping& mapping)
+{
+  m_axismap.push_back(mapping);
+}
+
+void
+AxismapModifier::add_filter(XboxAxis axis, AxisFilterPtr filter)
+{
+  for(std::vector<AxisMapping>::iterator i = m_axismap.begin(); i != m_axismap.end(); ++i)
+  {
+    if (i->lhs == axis)
+    {
+      i->filters.push_back(filter);
+      break;
+    }
+  }
+
+  AxisMapping mapping;
+  mapping.lhs = axis;
+  mapping.rhs = axis;
+  mapping.invert = false;
+  mapping.filters.push_back(filter);
+  add(mapping);
+}
+
+std::string
+AxismapModifier::str() const
+{
+  std::ostringstream out;
+  out << "axismap:\n";
+  for(std::vector<AxisMapping>::const_iterator i = m_axismap.begin(); i != m_axismap.end(); ++i)
+  {
+    out << "  " << axis2string(i->lhs) << "=" << axis2string(i->rhs) << std::endl;
+    for(std::vector<AxisFilterPtr>::const_iterator filter = i->filters.begin(); filter != i->filters.end(); ++filter)
+    {
+      out << "    " << (*filter)->str() << std::endl;
+    }
+  }
+  return out.str();
+}
+
 /* EOF */

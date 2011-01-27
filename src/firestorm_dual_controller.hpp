@@ -19,7 +19,7 @@
 #ifndef HEADER_FIRESTORM_DUAL_CONTROLLER_HPP
 #define HEADER_FIRESTORM_DUAL_CONTROLLER_HPP
 
-#include <usb.h>
+#include <libusb.h>
 #include "xboxmsg.hpp"
 #include "xbox_generic_controller.hpp"
 
@@ -27,25 +27,25 @@ class FirestormDualController : public XboxGenericController
 {
 private:
   bool is_vsb;
-  struct usb_device* dev;
-  struct usb_dev_handle* handle;
+  libusb_device* dev;
+  libusb_device_handle* handle;
   
   int left_rumble;
   int right_rumble;
 
 public:
-  FirestormDualController(struct usb_device* dev, bool is_vsb, bool try_detach);
+  FirestormDualController(libusb_device* dev, bool is_vsb, bool try_detach);
   ~FirestormDualController();
 
   void set_rumble(uint8_t left, uint8_t right);
   void set_led(uint8_t status);
 
   /** @param timeout   timeout in msec, 0 means forever */
-  bool read(XboxGenericMsg& msg, bool verbose, int timeout);
+  bool read(XboxGenericMsg& msg, int timeout);
 
 private:
-  bool read_default(XboxGenericMsg& msg, bool verbose, int timeout);
-  bool read_vsb(XboxGenericMsg& msg, bool verbose, int timeout);
+  bool read_default(XboxGenericMsg& msg, int timeout);
+  bool read_vsb(XboxGenericMsg& msg, int timeout);
 
 private:
   FirestormDualController(const FirestormDualController&);

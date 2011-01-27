@@ -19,25 +19,44 @@
 #ifndef HEADER_XBOXDRV_MODIFIER_AXISMAP_MODIFIER_HPP
 #define HEADER_XBOXDRV_MODIFIER_AXISMAP_MODIFIER_HPP
 
-#include <vector>
-
+#include "axis_filter.hpp"
 #include "modifier.hpp"
-
-class AxismapModifier : public Modifier
+
+struct AxisMapping
 {
-private:
-  std::vector<AxisMapping> m_axismap;
+  static AxisMapping from_string(const std::string& lhs, const std::string& rhs);
 
+  XboxAxis lhs;
+  XboxAxis rhs;
+  bool     invert;
+  std::vector<AxisFilterPtr> filters;
+
+  AxisMapping() :
+    lhs(XBOX_AXIS_UNKNOWN),
+    rhs(XBOX_AXIS_UNKNOWN),
+    invert(false),
+    filters()
+  {}
+};
+
+class AxismapModifier : public Modifier 
+{
 public:
-  AxismapModifier(const std::vector<AxisMapping>& axismap);
+  AxismapModifier();
 
   void update(int msec_delta, XboxGenericMsg& msg);
 
-private:
-  AxismapModifier(const AxismapModifier&);
-  AxismapModifier& operator=(const AxismapModifier&);
-};
+  void add(const AxisMapping& mapping);
+  void add_filter(XboxAxis axis, AxisFilterPtr filter);
 
+  std::string str() const;
+
+  bool empty() const { return m_axismap.empty(); }
+
+public:
+  std::vector<AxisMapping> m_axismap;
+};
+
 #endif
 
 /* EOF */
