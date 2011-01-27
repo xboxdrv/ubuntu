@@ -386,7 +386,7 @@ XboxdrvDaemon::print_info(struct udev_device* device)
   //udev_device_get_sysattr_value(device, "busnum");
   //udev_device_get_sysattr_value(device, "devnum");
 
-#ifdef 0
+#if 0
   {
     log_debug("list: ");
     struct udev_list_entry* it = udev_device_get_tags_list_entry(device);
