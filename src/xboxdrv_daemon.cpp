@@ -19,6 +19,7 @@
 #include "xboxdrv_daemon.hpp"
 
 #include <boost/format.hpp>
+#include <libudev.h>
 #include <fstream>
 
 #include "uinput_message_processor.hpp"
