@@ -19,6 +19,7 @@
 #include "xboxdrv.hpp"
 
 #include <boost/format.hpp>
+#include <boost/scoped_array.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <iostream>
 #include <signal.h>
