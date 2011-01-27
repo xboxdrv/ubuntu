@@ -18,7 +18,26 @@
 
 #include "four_way_restrictor_modifier.hpp"
 
-FourWayRestrictorModifier::FourWayRestrictorModifier()
+#include <stdexcept>
+#include <sstream>
+
+FourWayRestrictorModifier*
+FourWayRestrictorModifier::from_string(const std::vector<std::string>& args)
+{
+  if (args.size() != 2)
+  {
+    throw std::runtime_error("FourWayRestrictorModifier requires two arguments");
+  }
+  else
+  {
+    return new FourWayRestrictorModifier(string2axis(args[0]),
+                                         string2axis(args[1]));
+  }
+}
+
+FourWayRestrictorModifier::FourWayRestrictorModifier(XboxAxis xaxis, XboxAxis yaxis) :
+  m_xaxis(xaxis),
+  m_yaxis(yaxis)
 {
 }
 
@@ -54,4 +73,12 @@ FourWayRestrictorModifier::update(int msec_delta, XboxGenericMsg& msg)
   }
 }
 
+std::string
+FourWayRestrictorModifier::str() const
+{
+  std::ostringstream out;
+  out << "4way:" << axis2string(m_xaxis) << ":" << axis2string(m_yaxis);
+  return out.str();
+}
+
 /* EOF */

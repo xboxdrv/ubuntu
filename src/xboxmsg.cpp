@@ -16,14 +16,24 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <assert.h>
+#include "xboxmsg.hpp"
+
 #include <boost/format.hpp>
-#include <iostream>
-#include <algorithm>
 
 #include "helper.hpp"
-#include "options.hpp"
-#include "xboxmsg.hpp"
+
+int16_t u8_to_s16(uint8_t value)
+{
+  // FIXME: verify this
+  if (value < 128)
+  {
+    return -32768 + (value * 32768 / 128);
+  }
+  else
+  {
+    return (value-128) * 32767 / 127;
+  }
+}
 
 std::string gamepadtype_to_string(const GamepadType& type)
 {
@@ -56,6 +66,9 @@ std::string gamepadtype_to_string(const GamepadType& type)
     case GAMEPAD_SAITEK_P2500:
       return "saitek-p2500";
 
+    case GAMEPAD_PLAYSTATION3_USB:
+      return "playstation3-usb";
+
     default:
       assert(!"Unknown gamepad type supplied");
   }
@@ -75,6 +88,7 @@ std::string gamepadtype_to_macro_string(const GamepadType& type)
     case GAMEPAD_FIRESTORM: return "GAMEPAD_FIRESTORM";
     case GAMEPAD_FIRESTORM_VSB: return "GAMEPAD_FIRESTORM_VSB";
     case GAMEPAD_SAITEK_P2500: return "GAMEPAD_SAITEK_P2500";
+    case GAMEPAD_PLAYSTATION3_USB: return "GAMEPAD_PLAYSTATION3_USB";
     default:
       assert(!"Unknown gamepad type supplied");
   }
@@ -111,6 +125,9 @@ std::ostream& operator<<(std::ostream& out, const GamepadType& type)
     case GAMEPAD_SAITEK_P2500:
       return out << "Saitek P2500";
 
+    case GAMEPAD_PLAYSTATION3_USB:
+      return out << "Playstation 3 USB";
+
     default:
       return out << "unknown" << std::endl;
   }
@@ -125,10 +142,47 @@ std::ostream& operator<<(std::ostream& out, const XboxGenericMsg& msg)
         
     case XBOX_MSG_XBOX360:
       return out << msg.xbox360;
+
+    case XBOX_MSG_PS3USB:
+      return out << msg.ps3usb;
         
     default:
       return out << "Error: Unhandled XboxGenericMsg type: " << msg.type;
   }
+}
+
+std::ostream& operator<<(std::ostream& out, const Playstation3USBMsg& msg)
+{
+  out << boost::format("X1:%3d Y1:%3d")
+    % int(msg.x1) % int(msg.y1);
+
+  out << boost::format("  X2:%3d Y2:%3d")
+    % int(msg.x2) % int(msg.y2);
+
+  out << boost::format("  du:%3d dd:%3d dl:%3d dr:%3d")
+    % int(msg.a_dpad_up)
+    % int(msg.a_dpad_down)
+    % int(msg.a_dpad_left)
+    % int(msg.a_dpad_right);
+
+  out << "  select:" << msg.select;
+  out << " ps:" << msg.playstation;
+  out << " start:" << msg.start;
+
+  out << boost::format("  L3:%d R3:%d") % static_cast<int>(msg.l3) % static_cast<int>(msg.r3);
+
+  out << boost::format("  /\\:%3d O:%3d X:%3d []:%3d  L1:%3d R1:%3d")
+    % static_cast<int>(msg.a_triangle)
+    % static_cast<int>(msg.a_circle)
+    % static_cast<int>(msg.a_cross)
+    % static_cast<int>(msg.a_square)
+    % static_cast<int>(msg.a_l1)
+    % static_cast<int>(msg.a_r1);
+
+  out << boost::format("  L2:%3d R2:%3d")
+    % int(msg.a_l2) % int(msg.a_r2);
+
+  return out;
 }
 
 std::ostream& operator<<(std::ostream& out, const Xbox360Msg& msg) 
@@ -163,8 +217,7 @@ std::ostream& operator<<(std::ostream& out, const Xbox360Msg& msg)
   out << boost::format("  LT:%3d RT:%3d")
     % int(msg.lt) % int(msg.rt);
 
-  if (g_options->verbose)
-    out << " Dummy: " << msg.dummy1 << " " << msg.dummy2 << " " << msg.dummy3;
+  // out << " Dummy: " << msg.dummy1 << " " << msg.dummy2 << " " << msg.dummy3;
 
   return out;
 }
@@ -203,8 +256,7 @@ std::ostream& operator<<(std::ostream& out, const XboxMsg& msg)
     % int(msg.lt) 
     % int(msg.rt);
 
-  if (g_options->verbose)
-    out << " Dummy: " << msg.dummy;
+  // out << " Dummy: " << msg.dummy;
 
   return out;
 }
@@ -274,6 +326,37 @@ int get_button(XboxGenericMsg& msg, XboxButton button)
         case XBOX_BTN_UNKNOWN: return 0;
       }
       break;
+
+    case XBOX_MSG_PS3USB:
+      switch(button)
+      {
+        case XBOX_BTN_START:   return msg.ps3usb.start;
+        case XBOX_BTN_GUIDE:   return msg.ps3usb.playstation;
+        case XBOX_BTN_BACK:    return msg.ps3usb.select;
+
+        case XBOX_BTN_A:       return msg.ps3usb.cross;
+        case XBOX_BTN_B:       return msg.ps3usb.circle;
+        case XBOX_BTN_X:       return msg.ps3usb.square;
+        case XBOX_BTN_Y:       return msg.ps3usb.triangle;
+
+        case XBOX_BTN_LB:      return msg.ps3usb.l1;
+        case XBOX_BTN_RB:      return msg.ps3usb.r1;
+
+        case XBOX_BTN_LT:      return msg.ps3usb.l2;
+        case XBOX_BTN_RT:      return msg.ps3usb.r2;
+
+        case XBOX_BTN_THUMB_L: return msg.ps3usb.l3;
+        case XBOX_BTN_THUMB_R: return msg.ps3usb.r3;
+
+        case XBOX_DPAD_UP:     return msg.ps3usb.dpad_up;
+        case XBOX_DPAD_DOWN:   return msg.ps3usb.dpad_down;
+        case XBOX_DPAD_LEFT:   return msg.ps3usb.dpad_left;
+        case XBOX_DPAD_RIGHT:  return msg.ps3usb.dpad_right;
+
+        case XBOX_BTN_MAX:
+        case XBOX_BTN_UNKNOWN: return 0;
+      }
+      break;
   }
   return 0;
 }
@@ -338,6 +421,38 @@ void set_button(XboxGenericMsg& msg, XboxButton button, bool v)
         case XBOX_DPAD_DOWN:   msg.xbox.dpad_down = v; break;
         case XBOX_DPAD_LEFT:   msg.xbox.dpad_left = v; break;
         case XBOX_DPAD_RIGHT:  msg.xbox.dpad_right = v; break;
+
+        case XBOX_BTN_MAX:
+        case XBOX_BTN_UNKNOWN:
+          break;
+      }
+      break;
+
+    case XBOX_MSG_PS3USB:
+      switch(button)
+      {
+        case XBOX_BTN_START:   msg.ps3usb.start = v; break;
+        case XBOX_BTN_GUIDE:   msg.ps3usb.playstation = v; break;
+        case XBOX_BTN_BACK:    msg.ps3usb.select = v; break;
+
+        case XBOX_BTN_A:       msg.ps3usb.cross = v; break;
+        case XBOX_BTN_B:       msg.ps3usb.circle = v; break;
+        case XBOX_BTN_X:       msg.ps3usb.square = v; break;
+        case XBOX_BTN_Y:       msg.ps3usb.triangle = v; break;
+
+        case XBOX_BTN_LB:      msg.ps3usb.l1 = v; break;
+        case XBOX_BTN_RB:      msg.ps3usb.r1 = v; break;
+
+        case XBOX_BTN_LT:      msg.ps3usb.l2 = v; break;
+        case XBOX_BTN_RT:      msg.ps3usb.r2 = v; break;
+
+        case XBOX_BTN_THUMB_L: msg.ps3usb.l3 = v; break;
+        case XBOX_BTN_THUMB_R: msg.ps3usb.r3 = v; break;
+
+        case XBOX_DPAD_UP:     msg.ps3usb.dpad_up = v; break;
+        case XBOX_DPAD_DOWN:   msg.ps3usb.dpad_down = v; break;
+        case XBOX_DPAD_LEFT:   msg.ps3usb.dpad_left = v; break;
+        case XBOX_DPAD_RIGHT:  msg.ps3usb.dpad_right = v; break;
 
         case XBOX_BTN_MAX:
         case XBOX_BTN_UNKNOWN:
@@ -457,6 +572,59 @@ int get_axis(XboxGenericMsg& msg, XboxAxis axis)
         case XBOX_AXIS_WHITE: return msg.xbox.white;
       }
       break;
+
+    case XBOX_MSG_PS3USB:
+      switch(axis)
+      {
+        case XBOX_AXIS_MAX:
+        case XBOX_AXIS_UNKNOWN:
+          break;
+
+        case XBOX_AXIS_DPAD_X:
+          if (msg.ps3usb.dpad_left)
+          {
+            return -1;
+          }
+          else if (msg.ps3usb.dpad_right)
+          {
+            return 1;
+          }
+          else
+          {
+            return 0;
+          }
+
+        case XBOX_AXIS_DPAD_Y:
+          if (msg.ps3usb.dpad_up)
+          {
+            return -1;
+          }
+          else if (msg.ps3usb.dpad_down)
+          {
+            return 1;
+          }
+          else
+          {
+            return 0;
+          }
+
+        case XBOX_AXIS_TRIGGER: return msg.ps3usb.a_r2 - msg.ps3usb.a_l2;
+
+        case XBOX_AXIS_X1: return u8_to_s16(msg.ps3usb.x1);
+        case XBOX_AXIS_Y1: return u8_to_s16(msg.ps3usb.y1);
+        case XBOX_AXIS_X2: return u8_to_s16(msg.ps3usb.x2);
+        case XBOX_AXIS_Y2: return u8_to_s16(msg.ps3usb.y2);
+        case XBOX_AXIS_LT: return msg.ps3usb.a_l2;
+        case XBOX_AXIS_RT: return msg.ps3usb.a_r2;
+
+        case XBOX_AXIS_A:     return msg.ps3usb.a_cross;
+        case XBOX_AXIS_B:     return msg.ps3usb.a_circle;
+        case XBOX_AXIS_X:     return msg.ps3usb.a_square;
+        case XBOX_AXIS_Y:     return msg.ps3usb.a_triangle;
+        case XBOX_AXIS_BLACK: return msg.ps3usb.a_l1;
+        case XBOX_AXIS_WHITE: return msg.ps3usb.a_r1;
+      }
+      break;
   }
   return 0;
 }
@@ -481,6 +649,7 @@ float u8_to_float(uint8_t value)
 {
   return static_cast<float>(value) / 255.0f * 2.0f - 1.0f;
 }
+
 
 int16_t float_to_s16(float v)
 {
@@ -612,6 +781,58 @@ float get_axis_float(XboxGenericMsg& msg, XboxAxis axis)
         case XBOX_AXIS_WHITE: return u8_to_float(msg.xbox.white);
       }
       break;
+
+    case XBOX_MSG_PS3USB:
+      switch(axis)
+      {
+        case XBOX_AXIS_MAX:
+        case XBOX_AXIS_UNKNOWN:
+          break;
+
+        case XBOX_AXIS_DPAD_X:
+          if (msg.ps3usb.dpad_left)
+          {
+            return -1.0f;
+          }
+          else if (msg.ps3usb.dpad_right)
+          {
+            return 1.0f;
+          }
+          else
+          {
+            return 0.0f;
+          }
+
+        case XBOX_AXIS_DPAD_Y:
+          if (msg.ps3usb.dpad_up)
+          {
+            return -1.0f;
+          }
+          else if (msg.ps3usb.dpad_down)
+          {
+            return 1.0f;
+          }
+          else
+          {
+            return 0.0f;
+          }
+
+        case XBOX_AXIS_TRIGGER: return static_cast<float>(msg.ps3usb.r2 - msg.ps3usb.l2)/512.0f;
+
+        case XBOX_AXIS_X1: return u8_to_float(msg.ps3usb.x1);
+        case XBOX_AXIS_Y1: return u8_to_float(msg.ps3usb.y1);
+        case XBOX_AXIS_X2: return u8_to_float(msg.ps3usb.x2);
+        case XBOX_AXIS_Y2: return u8_to_float(msg.ps3usb.y2);
+        case XBOX_AXIS_LT: return u8_to_float(msg.ps3usb.a_l2);
+        case XBOX_AXIS_RT: return u8_to_float(msg.ps3usb.a_r2);
+
+        case XBOX_AXIS_A:     return u8_to_float(msg.ps3usb.a_cross);
+        case XBOX_AXIS_B:     return u8_to_float(msg.ps3usb.a_circle);
+        case XBOX_AXIS_X:     return u8_to_float(msg.ps3usb.a_square);
+        case XBOX_AXIS_Y:     return u8_to_float(msg.ps3usb.a_triangle);
+        case XBOX_AXIS_BLACK: return u8_to_float(msg.ps3usb.a_l1);
+        case XBOX_AXIS_WHITE: return u8_to_float(msg.ps3usb.a_r1);
+      }
   }
   return 0;
 }
@@ -739,12 +960,76 @@ void set_axis_float(XboxGenericMsg& msg, XboxAxis axis, float v)
         case XBOX_AXIS_LT: msg.xbox.lt = float_to_u8(v); break;
         case XBOX_AXIS_RT: msg.xbox.rt = float_to_u8(v); break;
 
-        case XBOX_AXIS_A:     msg.xbox.a = float_to_u8(v);
-        case XBOX_AXIS_B:     msg.xbox.b = float_to_u8(v);
-        case XBOX_AXIS_X:     msg.xbox.x = float_to_u8(v);
-        case XBOX_AXIS_Y:     msg.xbox.y = float_to_u8(v);
-        case XBOX_AXIS_BLACK: msg.xbox.black = float_to_u8(v);
-        case XBOX_AXIS_WHITE: msg.xbox.white = float_to_u8(v);
+        case XBOX_AXIS_A:     msg.xbox.a = float_to_u8(v); break;
+        case XBOX_AXIS_B:     msg.xbox.b = float_to_u8(v); break;
+        case XBOX_AXIS_X:     msg.xbox.x = float_to_u8(v); break;
+        case XBOX_AXIS_Y:     msg.xbox.y = float_to_u8(v); break;
+        case XBOX_AXIS_BLACK: msg.xbox.black = float_to_u8(v); break;
+        case XBOX_AXIS_WHITE: msg.xbox.white = float_to_u8(v); break;
+      }
+      break;
+
+    case XBOX_MSG_PS3USB:
+      switch(axis)
+      {
+        case XBOX_AXIS_MAX:
+        case XBOX_AXIS_UNKNOWN:
+          break;
+
+        case XBOX_AXIS_TRIGGER:
+          msg.ps3usb.a_l2 = v < 0 ? int(v*255) : 0;
+          msg.ps3usb.a_r2 = v > 0 ? int(v*255) : 0;
+          break;
+
+        case XBOX_AXIS_DPAD_X:
+          if (v > 0.5f)
+          {
+            msg.ps3usb.dpad_left  = false;
+            msg.ps3usb.dpad_right =  true;
+          }
+          else if (v < -0.5f)
+          {
+            msg.ps3usb.dpad_left   = true;
+            msg.ps3usb.dpad_right = false;
+          }
+          else
+          {
+            msg.ps3usb.dpad_left  = false;
+            msg.ps3usb.dpad_right = false;
+          }
+          break;
+
+        case XBOX_AXIS_DPAD_Y:
+          if (v > 0.5f)
+          {
+            msg.ps3usb.dpad_up   = false;
+            msg.ps3usb.dpad_down = true;
+          }
+          else if (v < -0.5f)
+          {
+            msg.ps3usb.dpad_up   = true;
+            msg.ps3usb.dpad_down = false;
+          }
+          else
+          {
+            msg.ps3usb.dpad_down = false;
+            msg.ps3usb.dpad_up   = false;
+          }
+          break;
+
+        case XBOX_AXIS_X1: msg.ps3usb.x1 = float_to_s16(v); break;
+        case XBOX_AXIS_Y1: msg.ps3usb.y1 = float_to_s16(v); break;
+        case XBOX_AXIS_X2: msg.ps3usb.x2 = float_to_s16(v); break;
+        case XBOX_AXIS_Y2: msg.ps3usb.y2 = float_to_s16(v); break;
+        case XBOX_AXIS_LT: msg.ps3usb.a_l2 = float_to_u8(v); break;
+        case XBOX_AXIS_RT: msg.ps3usb.a_r2 = float_to_u8(v); break;
+
+        case XBOX_AXIS_A:     msg.ps3usb.a_cross    = float_to_u8(v); break;
+        case XBOX_AXIS_B:     msg.ps3usb.a_circle   = float_to_u8(v); break;
+        case XBOX_AXIS_X:     msg.ps3usb.a_square   = float_to_u8(v); break;
+        case XBOX_AXIS_Y:     msg.ps3usb.a_triangle = float_to_u8(v); break;
+        case XBOX_AXIS_BLACK: msg.ps3usb.a_l1 = float_to_u8(v); break;
+        case XBOX_AXIS_WHITE: msg.ps3usb.a_r1 = float_to_u8(v); break;
       }
       break;
   }
@@ -881,6 +1166,70 @@ void set_axis(XboxGenericMsg& msg, XboxAxis axis, int v)
         case XBOX_AXIS_WHITE: msg.xbox.white = v; break;
       }
       break;
+
+    case XBOX_MSG_PS3USB:
+      switch(axis)
+      {
+        case XBOX_AXIS_MAX:
+        case XBOX_AXIS_UNKNOWN:
+          break;
+
+        case XBOX_AXIS_TRIGGER:
+          msg.ps3usb.a_l2 = v < 0 ? v : 0;
+          msg.ps3usb.a_r2 = v > 0 ? v : 0;
+          break;
+
+        case XBOX_AXIS_DPAD_X:
+          if (v > 0)
+          {
+            msg.ps3usb.dpad_left  = false;
+            msg.ps3usb.dpad_right =  true;
+          }
+          else if (v < 0)
+          {
+            msg.ps3usb.dpad_left   = true;
+            msg.ps3usb.dpad_right = false;
+          }
+          else
+          {
+            msg.ps3usb.dpad_left  = false;
+            msg.ps3usb.dpad_right = false;
+          }
+          break;
+
+        case XBOX_AXIS_DPAD_Y:
+          if (v > 0)
+          {
+            msg.ps3usb.dpad_up   = false;
+            msg.ps3usb.dpad_down = true;
+          }
+          else if (v < 0)
+          {
+            msg.ps3usb.dpad_up   = true;
+            msg.ps3usb.dpad_down = false;
+          }
+          else
+          {
+            msg.ps3usb.dpad_down = false;
+            msg.ps3usb.dpad_up   = false;
+          }
+          break;
+
+        case XBOX_AXIS_X1: msg.ps3usb.x1 = v; break;
+        case XBOX_AXIS_Y1: msg.ps3usb.y1 = v; break;
+        case XBOX_AXIS_X2: msg.ps3usb.x2 = v; break;
+        case XBOX_AXIS_Y2: msg.ps3usb.y2 = v; break;
+        case XBOX_AXIS_LT: msg.ps3usb.a_l2 = v; break;
+        case XBOX_AXIS_RT: msg.ps3usb.a_r2 = v; break;
+
+        case XBOX_AXIS_A:     msg.ps3usb.a_cross    = v; break;
+        case XBOX_AXIS_B:     msg.ps3usb.a_circle   = v; break;
+        case XBOX_AXIS_X:     msg.ps3usb.a_square   = v; break;
+        case XBOX_AXIS_Y:     msg.ps3usb.a_triangle = v; break;
+        case XBOX_AXIS_BLACK: msg.ps3usb.a_l1 = v; break;
+        case XBOX_AXIS_WHITE: msg.ps3usb.a_r1 = v; break;
+      }
+      break;
   }
 }
 
@@ -958,16 +1307,16 @@ XboxAxis string2axis(const std::string& str_)
   else if (str == "trigger" || str == "z" || str == "rudder")
     return XBOX_AXIS_TRIGGER;
 
-  else if (str == "a")
+  else if (str == "btn_a")
     return XBOX_AXIS_A;
 
-  else if (str == "b")
+  else if (str == "btn_b")
     return XBOX_AXIS_B;
 
-  else if (str == "x")
+  else if (str == "btn_x")
     return XBOX_AXIS_X;
 
-  else if (str == "y")
+  else if (str == "btn_y")
     return XBOX_AXIS_Y;
 
   else if (str == "black")
@@ -1001,12 +1350,12 @@ std::string axis2string(XboxAxis axis)
     case XBOX_AXIS_LT: return "LT";
     case XBOX_AXIS_RT: return "RT";
 
-    case XBOX_AXIS_A:     return "a";
-    case XBOX_AXIS_B:     return "b";
-    case XBOX_AXIS_X:     return "x"; 
-    case XBOX_AXIS_Y:     return "y"; 
-    case XBOX_AXIS_BLACK: return "black";
-    case XBOX_AXIS_WHITE: return "white";
+    case XBOX_AXIS_A:     return "BTN_A";
+    case XBOX_AXIS_B:     return "BTN_B";
+    case XBOX_AXIS_X:     return "BTN_X"; 
+    case XBOX_AXIS_Y:     return "BTN_Y"; 
+    case XBOX_AXIS_BLACK: return "Black";
+    case XBOX_AXIS_WHITE: return "White";
   }
   return "unknown";
 }

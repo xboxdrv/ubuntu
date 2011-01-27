@@ -16,26 +16,44 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <iostream>
+#include "helper.hpp"
+
 #include <boost/format.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/lexical_cast.hpp>
-#include <sys/time.h>
-#include <stdlib.h>
-#include <sys/ioctl.h>
 #include <stdio.h>
+#include <sys/time.h>
+#include <sys/ioctl.h>
 
-#include "helper.hpp"
+#include "raise_exception.hpp"
 
-void print_raw_data(std::ostream& out, uint8_t* data, int len)
+int hexstr2int(const std::string& str)
 {
-  std::cout << "len: " << len 
-            << " data: ";
-      
+  unsigned int value = 0;
+  if (sscanf(str.c_str(), "%x", &value) == 1)
+  {
+    return value;
+  }
+  else if (sscanf(str.c_str(), "0x%x", &value) == 1)
+  {
+    return value;
+  }
+  else
+  {
+    raise_exception(std::runtime_error, "couldn't convert '" << str << "' to int");
+  }
+}
+
+std::string raw2str(uint8_t* data, int len)
+{
+  std::ostringstream out;
+  out << "len: " << len 
+      << " data: ";
+  
   for(int i = 0; i < len; ++i)
-    std::cout << boost::format("0x%02x ") % int(data[i]);
+    out << boost::format("%02x ") % int(data[i]);
 
-  std::cout << std::endl;
+  return out.str();
 }
 
 std::string to_lower(const std::string &str)
@@ -112,6 +130,31 @@ uint32_t get_time()
   struct timeval tv;
   gettimeofday(&tv, NULL);
   return tv.tv_sec * 1000 + tv.tv_usec/1000;
+}
+
+float to_float(int value, int min, int max)
+{
+  assert(value >= min);
+  assert(value <= max);
+
+  // FIXME: '+1' is kind of a hack to
+  // get the center at 0 for the
+  // [-32768, 32767] case
+  int center = (max + min + 1)/2;
+
+  if (value < center)
+  {
+    return static_cast<float>(value - center) / static_cast<float>(center - min);
+  }
+  else // (value >= center)
+  {
+    return static_cast<float>(value - center) / static_cast<float>(max - center);
+  }
+}
+
+int from_float(float value, int min, int max)
+{
+  return (value + 1.0f) / 2.0f * static_cast<float>(max - min) + min;
 }
 
 int get_terminal_width()

@@ -19,15 +19,11 @@
 #ifndef HEADER_COMMAND_LINE_OPTIONS_HPP
 #define HEADER_COMMAND_LINE_OPTIONS_HPP
 
-#include <vector>
-#include <map>
-
 #include "arg_parser.hpp"
 #include "ini_schema.hpp"
-#include "modifier.hpp"
 #include "uinput.hpp"
-#include "xboxmsg.hpp"
 
+class Options;
 class Xboxdrv;
 
 class CommandLineParser 
@@ -48,6 +44,10 @@ public:
   void create_ini_schema(Options* opts);
 
 private:
+  void set_ui_buttonmap(const std::string& name, const std::string& value);
+  void set_ui_axismap(const std::string& name, const std::string& value);
+  void set_modifier(const std::string& name, const std::string& value);
+
   void set_axismap(const std::string& name, const std::string& value);
   void set_buttonmap(const std::string& name, const std::string& value);
 
@@ -59,12 +59,22 @@ private:
   void set_calibration(const std::string& name, const std::string& value);
   void set_axis_sensitivity(const std::string& name, const std::string& value);
 
+  void set_deadzone(const std::string& value);
+  void set_deadzone_trigger(const std::string& value);
+  void set_square_axis();
+  void set_four_way_restrictor();
+  void set_dpad_rotation(const std::string& value);
+
   void read_config_file(Options* opts, const std::string& filename);
   void read_alt_config_file(Options* opts, const std::string& filename);
 
 private:
   void init_argp();
   void init_ini(Options* opts);
+
+private:
+  CommandLineParser(const CommandLineParser&);
+  CommandLineParser& operator=(const CommandLineParser&);
 };
 
 extern Options* g_options;

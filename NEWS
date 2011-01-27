@@ -1,7 +1,25 @@
-xboxdrv 0.6.6 - (23/Jan/2011)
+xboxdrv 0.7.0 - (28/Jan/2011)
 =============================
 
-* fixed incorrect deadzone handling
+* switched to libusb-1.0
+* -D, --daemon replaces xboxdrv-daemon
+* --daemon supports hotpluging via libudev, even in applications that
+  don't support it themselves
+* cleaned up axis/button modifier some more
+* startup output got cleaned up
+* fixed double Ctrl-c issue
+* added --modifier MODIFIER,...
+* configuration toggle button now works with modifiers too
+* renamed --ui-new to --next-config
+* renamed --ui-toggle to --toggle
+* fixed incorrect endpoint detection for Xbox1 controller
+* native Playstation 3 USB controller support
+* added axis rotation modifier
+* renamed A, B, X, Y axis to BTN_A, BTN_B, BTN_X, BTN_Y to avoid
+  confusion with X1, Y1
+* added --list-all, --list-key, -list-rel, ... to display all
+  available symbolic name
+* changed device_id syntax from 1-BTN_A to now BTN_A@1
 
 
 xboxdrv 0.6.5 - (22/Jan/2011)

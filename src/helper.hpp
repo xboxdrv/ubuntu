@@ -19,12 +19,11 @@
 #ifndef HEADER_HELPER_HPP
 #define HEADER_HELPER_HPP
 
-#include <iosfwd>
-#include <vector>
-#include <stdint.h>
 #include <boost/function.hpp>
 
-void print_raw_data(std::ostream& out, uint8_t* buffer, int len);
+int hexstr2int(const std::string& str);
+
+std::string raw2str(uint8_t* buffer, int len);
 std::string to_lower(const std::string &str);
 bool is_number(const std::string& str);
 
@@ -64,6 +63,12 @@ inline int16_t scale_8to16(int8_t a)
   else
     return static_cast<int16_t>(a * 32768 / 128);
 }
+
+/** converts the arbitary range to [-1,1] */
+float to_float(int value, int min, int max);
+
+/** converts the range [-1,1] to [min,max] */
+int from_float(float value, int min, int max);
 
 int get_terminal_width();
 

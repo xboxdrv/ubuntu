@@ -18,14 +18,12 @@
 
 #include "chatpad.hpp"
 
-#include <iostream>
-#include <boost/format.hpp>
-#include <usb.h>
-#include <string.h>
-
+#include "helper.hpp"
 #include "linux_uinput.hpp"
+#include "raise_exception.hpp"
+#include "usb_helper.hpp"
 
-Chatpad::Chatpad(struct usb_dev_handle* handle, uint16_t bcdDevice,
+Chatpad::Chatpad(libusb_device_handle* handle, uint16_t bcdDevice,
                  bool no_init, bool debug) :
   m_handle(handle),
   m_bcdDevice(bcdDevice),
@@ -34,6 +32,7 @@ Chatpad::Chatpad(struct usb_dev_handle* handle, uint16_t bcdDevice,
   m_quit_thread(false),
   m_read_thread(),
   m_keep_alive_thread(),
+  m_uinput(),
   m_led_state(0)
 {
   if (m_bcdDevice != 0x0110 && m_bcdDevice != 0x0114)
@@ -125,6 +124,17 @@ Chatpad::get_led(unsigned int led)
 }
 
 void
+Chatpad::send_ctrl(uint8_t request_type, uint8_t request, uint16_t value, uint16_t index,
+                   uint8_t* data, uint16_t length)
+{
+  int ret = libusb_control_transfer(m_handle, request_type, request, value, index, data, length, 0);
+  if (ret != LIBUSB_SUCCESS)
+  {
+    raise_exception(std::runtime_error, "libusb_control_transfer() failed: " << usb_strerror(ret));
+  }
+}
+
+void
 Chatpad::set_led(unsigned int led, bool state)
 {
   if (state)
@@ -133,19 +143,19 @@ Chatpad::set_led(unsigned int led, bool state)
 
     if (led == CHATPAD_LED_PEOPLE)
     {
-      usb_control_msg(m_handle, 0x41, 0x00, 0x000b, 0x0002, NULL, 0, 0);
+      send_ctrl(0x41, 0x00, 0x000b, 0x0002, NULL, 0);
     }
     else if (led == CHATPAD_LED_ORANGE)
     {
-      usb_control_msg(m_handle, 0x41, 0x00, 0x000a, 0x0002, NULL, 0, 0);
+      send_ctrl(0x41, 0x00, 0x000a, 0x0002, NULL, 0);
     }
     else if (led == CHATPAD_LED_GREEN)
     {
-      usb_control_msg(m_handle, 0x41, 0x00, 0x0009, 0x0002, NULL, 0, 0);
+      send_ctrl(0x41, 0x00, 0x0009, 0x0002, NULL, 0);
     }
     else if (led == CHATPAD_LED_SHIFT)
     {
-      usb_control_msg(m_handle, 0x41, 0x00, 0x0008, 0x0002, NULL, 0, 0);
+      send_ctrl(0x41, 0x00, 0x0008, 0x0002, NULL, 0);
     }
   }
   else
@@ -154,19 +164,24 @@ Chatpad::set_led(unsigned int led, bool state)
 
     if (led == CHATPAD_LED_PEOPLE)
     {
-      usb_control_msg(m_handle, 0x41, 0x00, 0x0003, 0x0002, NULL, 0, 0);
+      send_ctrl(0x41, 0x00, 0x0003, 0x0002, NULL, 0);
     }
     else if (led == CHATPAD_LED_ORANGE)
     {
-      usb_control_msg(m_handle, 0x41, 0x00, 0x0002, 0x0002, NULL, 0, 0);
+      send_ctrl(0x41, 0x00, 0x0002, 0x0002, NULL, 0);
     }
     else if (led == CHATPAD_LED_GREEN)
     {
-      usb_control_msg(m_handle, 0x41, 0x00, 0x0001, 0x0002, NULL, 0, 0);
+      send_ctrl(0x41, 0x00, 0x0001, 0x0002, NULL, 0);
     }
     else if (led == CHATPAD_LED_SHIFT)
     {
-      usb_control_msg(m_handle, 0x41, 0x00, 0x0000, 0x0002, NULL, 0, 0);
+      send_ctrl(0x41, 0x00, 0x0000, 0x0002, NULL, 0);
+    }
+    else if (led == CHATPAD_LED_BACKLIGHT)
+    {
+      // backlight goes on automatically, so we only provide a switch to disable it
+      send_ctrl(0x41, 0x00, 0x0004, 0x0002, NULL, 0);
     }
   }
 }
@@ -181,29 +196,25 @@ Chatpad::start_threads()
 void
 Chatpad::read_thread()
 {
-  try
+  try 
   {
     uint8_t data[5];
     while(!m_quit_thread)
     {
-      int len = usb_interrupt_read(m_handle, 6, reinterpret_cast<char*>(data), sizeof(data), 0);
-      if (len < 0)
+      int len = 0;
+      int ret = libusb_interrupt_transfer(m_handle, LIBUSB_ENDPOINT_IN | 6,
+                                          data, sizeof(data), &len, 0);
+      if (ret != LIBUSB_SUCCESS)
       {
-        std::cout << "Error in read_thread" << std::endl;
-        return;
+        raise_exception(std::runtime_error, "libusb_interrupt_transfer() failed: " << usb_strerror(ret));
       }
       else
       {
-        if (m_debug)
+        if (g_logger.get_log_level() > Logger::kDebug)
         {
-          std::cout << "[chatpad] read: " << len << "/5: data: " << std::flush;
-          for(int i = 0; i < len; ++i)
-          {
-            std::cout << boost::format("0x%02x ") % int(data[i]);
-          }
-          std::cout << std::endl;
+          log_debug("read: " << len << "/5: data: " << raw2str(data, len));
         }
-
+        
         if (data[0] == 0x00)
         {
           struct ChatpadKeyMsg msg;
@@ -215,7 +226,7 @@ Chatpad::read_thread()
   }
   catch(const std::exception& err)
   {
-    std::cout << "Chatpad: " << err.what() << std::endl;
+    log_error(err.what());
   }
 }
 
@@ -244,11 +255,6 @@ Chatpad::process(const ChatpadKeyMsg& msg)
     {
       if (m_state[i])
       {
-        if (i == CHATPAD_KEY_1)
-        {
-          usb_control_msg(m_handle, 0x41, 0x00, 0x0004, 0x0002, NULL, 0, 0);
-        }
-
         if (i == CHATPAD_MOD_PEOPLE)
         {
           set_led(CHATPAD_LED_PEOPLE, !get_led(CHATPAD_LED_PEOPLE));
@@ -276,23 +282,23 @@ Chatpad::process(const ChatpadKeyMsg& msg)
 void
 Chatpad::keep_alive_thread()
 {
-  try 
+  try
   {
     // loop and send keep alives
     while(!m_quit_thread)
     {
-      usb_control_msg(m_handle, 0x41, 0x0, 0x1f, 0x02, 0, NULL, 0);
-      if (m_debug) std::cout << "[chatpad] 0x1f" << std::endl;
+      send_ctrl(0x41, 0x0, 0x1f, 0x02, NULL, 0);
+      log_debug("0x1f");
       sleep(1);
        
-      usb_control_msg(m_handle, 0x41, 0x0, 0x1e, 0x02, 0, NULL, 0);
-      if (m_debug) std::cout << "[chatpad] 0x1e" << std::endl;
+      send_ctrl(0x41, 0x0, 0x1e, 0x02, NULL, 0);
+      log_debug("0x1e");
       sleep(1);
     }
   }
   catch(const std::exception& err)
   {
-    std::cout << "Chatpad: " << err.what() << std::endl;
+    log_error(err.what());
   }
 }
 
@@ -302,21 +308,21 @@ Chatpad::send_init()
   if (!m_no_init)
   {
     int ret;
-    char buf[2];
+    uint8_t buf[2];
 
     // these three will fail, but are necessary to have the later ones succeed
-    ret = usb_control_msg(m_handle, 0x40, 0xa9, 0xa30c, 0x4423, NULL, 0, 0);
-    if (m_debug) std::cout << "[chatpad] ret: " << ret << std::endl;
+    ret = libusb_control_transfer(m_handle, 0x40, 0xa9, 0xa30c, 0x4423, NULL, 0, 0);
+    log_debug("ret: " << usb_strerror(ret));
 
-    ret = usb_control_msg(m_handle, 0x40, 0xa9, 0x2344, 0x7f03, NULL, 0, 0);
-    if (m_debug) std::cout << "[chatpad] ret: " << ret << std::endl;
+    ret = libusb_control_transfer(m_handle, 0x40, 0xa9, 0x2344, 0x7f03, NULL, 0, 0);
+    log_debug("ret: " << usb_strerror(ret));
 
-    ret = usb_control_msg(m_handle, 0x40, 0xa9, 0x5839, 0x6832, NULL, 0, 0);
-    if (m_debug) std::cout << "[chatpad] ret: " << ret << std::endl;
+    ret = libusb_control_transfer(m_handle, 0x40, 0xa9, 0x5839, 0x6832, NULL, 0, 0);
+    log_debug("ret: " << usb_strerror(ret));
 
     // make chatpad ready
-    ret = usb_control_msg(m_handle, 0xc0, 0xa1, 0x0000, 0xe416, buf, 2, 0); // (read 2 bytes, will return a mode)
-    if (m_debug) std::cout << "[chatpad] ret: " << ret << " " << static_cast<int>(buf[0]) << " " << static_cast<int>(buf[1])<< std::endl;
+    ret = libusb_control_transfer(m_handle, 0xc0, 0xa1, 0x0000, 0xe416, buf, 2, 0); // (read 2 bytes, will return a mode)
+    log_debug("ret: " << usb_strerror(ret) << " " << static_cast<int>(buf[0]) << " " << static_cast<int>(buf[1]));
 
     if (buf[1] & 2)
     {
@@ -340,33 +346,33 @@ Chatpad::send_init()
         assert(!"never reached");
       }
 
-      ret = usb_control_msg(m_handle, 0x40, 0xa1, 0x0000, 0xe416, buf, 2, 0); // (send 2 bytes, data must be 0x09 0x00)
-      if (m_debug) std::cout << "[chatpad] ret: " << ret << std::endl;
+      ret = libusb_control_transfer(m_handle, 0x40, 0xa1, 0x0000, 0xe416, buf, 2, 0); // (send 2 bytes, data must be 0x09 0x00)
+      log_debug("ret: " << usb_strerror(ret));
  
-      ret = usb_control_msg(m_handle, 0xc0, 0xa1, 0x0000, 0xe416, buf, 2, 0); // (read 2 bytes, this should return the NEW mode)
-      if (m_debug) std::cout << "[chatpad] ret: " << ret << " " << static_cast<int>(buf[0]) << " " << static_cast<int>(buf[1]) << std::endl;
+      ret = libusb_control_transfer(m_handle, 0xc0, 0xa1, 0x0000, 0xe416, buf, 2, 0); // (read 2 bytes, this should return the NEW mode)
+      log_debug("ret: " << usb_strerror(ret) << " " << static_cast<int>(buf[0]) << " " << static_cast<int>(buf[1]));
 
       /* FIXME: not proper way to check if the chatpad is alive
-      if (!(buf[1] & 2)) // FIXME: check for {9,0} for bcdDevice==0x114
-      {
-        throw std::runtime_error("chatpad init failure");
-      }
+         if (!(buf[1] & 2)) // FIXME: check for {9,0} for bcdDevice==0x114
+         {
+         throw std::runtime_error("chatpad init failure");
+         }
       */
       // chatpad is enabled, so start with keep alive
     }
   }
 
   // only when we get "01 02" back is the chatpad ready
-  usb_control_msg(m_handle, 0x41, 0x0, 0x1f, 0x02, 0, NULL, 0);
-  if (m_debug) std::cout << "[chatpad] 0x1f" << std::endl;
+  libusb_control_transfer(m_handle, 0x41, 0x0, 0x1f, 0x02, 0, NULL, 0);
+  log_debug("0x1f");
   sleep(1);
        
-  usb_control_msg(m_handle, 0x41, 0x0, 0x1e, 0x02, 0, NULL, 0);
-  if (m_debug) std::cout << "[chatpad] 0x1e" << std::endl;
+  libusb_control_transfer(m_handle, 0x41, 0x0, 0x1e, 0x02, 0, NULL, 0);
+  log_debug("0x1e");
 
   // can't send 1b before 1f before one rotation
-  usb_control_msg(m_handle, 0x41, 0x0, 0x1b, 0x02, 0, NULL, 0);
-  if (m_debug) std::cout << "[chatpad] 0x1b" << std::endl;
+  libusb_control_transfer(m_handle, 0x41, 0x0, 0x1b, 0x02, 0, NULL, 0);
+  log_debug("0x1b");
 }
 
 /* EOF */

@@ -19,13 +19,8 @@
 #ifndef HEADER_MODIFIER_HPP
 #define HEADER_MODIFIER_HPP
 
-#include <stdlib.h>
-#include <string>
-#include <vector>
 #include <boost/shared_ptr.hpp>
 
-#include "axis_filter.hpp"
-#include "button_filter.hpp"
 #include "xboxmsg.hpp"
 
 class Modifier;
@@ -36,55 +31,13 @@ typedef boost::shared_ptr<Modifier> ModifierPtr;
 class Modifier
 {
 public:
+  static Modifier* from_string(const std::string& name, const std::string& value);
+
+public:
   virtual ~Modifier() {}
-  virtual void update(int msec_delta, XboxGenericMsg& msg) =0;
-};
-
-struct AutoFireMapping {
-  static AutoFireMapping from_string(const std::string& lhs, const std::string& rhs);
+  virtual void update(int msec_delta, XboxGenericMsg& msg) = 0;
 
-  XboxButton button;
-  int        frequency;
-};
-
-struct ButtonMapping {
-  static ButtonMapping from_string(const std::string& lhs, const std::string& rhs);
-
-  XboxButton lhs;
-  XboxButton rhs;
-  std::vector<ButtonFilterPtr> filters;
-};
-
-struct AxisMapping {
-  static AxisMapping from_string(const std::string& lhs, const std::string& rhs);
-
-  XboxAxis lhs;
-  XboxAxis rhs;
-  bool     invert;
-  std::vector<AxisFilterPtr> filters;
-};
-
-struct RelativeAxisMapping {
-  static RelativeAxisMapping from_string(const std::string& lhs, const std::string& rhs);
-
-  XboxAxis axis;
-  int      speed;
-};
-
-struct CalibrationMapping {
-  static CalibrationMapping from_string(const std::string& lhs, const std::string& rhs);
-
-  XboxAxis axis;
-  int min;
-  int center;
-  int max;
-};
-
-struct AxisSensitivityMapping {
-  static AxisSensitivityMapping from_string(const std::string& lhs, const std::string& rhs);
-
-  XboxAxis axis;
-  float sensitivity;
+  virtual std::string str() const = 0;
 };
 
 #endif

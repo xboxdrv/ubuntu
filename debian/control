@@ -2,7 +2,9 @@ Source: xboxdrv
 Section: utils
 Priority: extra
 Maintainer: Ingo Ruhnke <grumbel@gmx.de>
-Build-Depends: scons, libusb-dev, libx11-dev, x11proto-core-dev,
+
+Build-Depends: scons, pkg-config, libusb-1.0-0-dev, 
+ libx11-dev, x11proto-core-dev,
  scons, g++, libboost-dev, libboost-thread-dev, x11proto-core-dev,
  debhelper (>= 7.4.15ubuntu1)
 Standards-Version: 3.8.4
