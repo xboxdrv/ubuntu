@@ -16,27 +16,27 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <errno.h>
-#include <iostream>
+#include "xbox_controller.hpp"
+
 #include <sstream>
 #include <stdexcept>
 #include <string.h>
 
 #include "usb_helper.hpp"
+#include "raise_exception.hpp"
 #include "xboxmsg.hpp"
-#include "xbox_controller.hpp"
 
-XboxController::XboxController(struct usb_device* dev_, bool try_detach) :
+XboxController::XboxController(libusb_device* dev_, bool try_detach) :
   dev(dev_),
   handle(),
   endpoint_in(1),
   endpoint_out(2)
 {
   find_endpoints();
-  handle = usb_open(dev);
-  if (!handle)
+  int ret = libusb_open(dev, &handle);
+  if (ret != LIBUSB_SUCCESS)
   {
-    throw std::runtime_error("Error opening Xbox360 controller");
+    raise_exception(std::runtime_error, "libusb_open() failed: " << usb_strerror(ret));
   }
   else
   {
@@ -44,74 +44,78 @@ XboxController::XboxController(struct usb_device* dev_, bool try_detach) :
     int err = usb_claim_n_detach_interface(handle, 0, try_detach);
     if (err != 0) 
     {
-      std::ostringstream out;
-      out << "Error couldn't claim the USB interface: " << strerror(-err) << std::endl
-          << "Try to run 'rmmod xpad' and then xboxdrv again or start xboxdrv with the option --detach-kernel-driver.";
-      throw std::runtime_error(out.str());
+      raise_exception(std::runtime_error,
+                      "Error couldn't claim the USB interface: " << strerror(-err) << std::endl <<
+                      "Try to run 'rmmod xpad' and then xboxdrv again or start xboxdrv with the option --detach-kernel-driver.");
     }
   }
 }
 
 XboxController::~XboxController()
 {
-  usb_release_interface(handle, 0); 
-  usb_close(handle);
+  libusb_release_interface(handle, 0); 
+  libusb_close(handle);
 }
 
 void
 XboxController::find_endpoints()
 {
-  bool debug_print = false;
-
-  for(struct usb_config_descriptor* config = dev->config;
-      config != dev->config + dev->descriptor.bNumConfigurations;
-      ++config)
+  libusb_config_descriptor* config;
+  int ret = libusb_get_config_descriptor(dev, 0 /* config_index */, &config);
+  if (ret != LIBUSB_SUCCESS)
   {
-    if (debug_print) std::cout << "Config: " << static_cast<int>(config->bConfigurationValue) << std::endl;
+    raise_exception(std::runtime_error, "libusb_get_config_descriptor() failed: " << usb_strerror(ret));
+  }
 
-    for(struct usb_interface* interface = config->interface;
-        interface != config->interface + config->bNumInterfaces;
-        ++interface)
+  // FIXME: no need to search all interfaces, could just check the one we acutally use
+  for(const libusb_interface* interface = config->interface;
+      interface != config->interface + config->bNumInterfaces;
+      ++interface)
+  {
+    for(const libusb_interface_descriptor* altsetting = interface->altsetting;
+        altsetting != interface->altsetting + interface->num_altsetting;
+        ++altsetting)
     {
-      for(struct usb_interface_descriptor* altsetting = interface->altsetting;
-          altsetting != interface->altsetting + interface->num_altsetting;
-          ++altsetting)
-      {
-        if (debug_print) std::cout << "  Interface: " << static_cast<int>(altsetting->bInterfaceNumber) << std::endl;
+      log_debug("  Interface: " << static_cast<int>(altsetting->bInterfaceNumber));
           
-        for(struct usb_endpoint_descriptor* endpoint = altsetting->endpoint; 
-            endpoint != altsetting->endpoint + altsetting->bNumEndpoints; 
-            ++endpoint)
+      for(const libusb_endpoint_descriptor* endpoint = altsetting->endpoint; 
+          endpoint != altsetting->endpoint + altsetting->bNumEndpoints; 
+          ++endpoint)
+      {
+        log_debug("    Endpoint: " << int(endpoint->bEndpointAddress & LIBUSB_ENDPOINT_ADDRESS_MASK) <<
+                  "(" << ((endpoint->bEndpointAddress & LIBUSB_ENDPOINT_DIR_MASK) ? "IN" : "OUT") << ")");
+                  
+        if (altsetting->bInterfaceClass    == 88 &&
+            altsetting->bInterfaceSubClass == 66 &&
+            altsetting->bInterfaceProtocol == 0)
         {
-          if (debug_print) 
-            std::cout << "    Endpoint: " << int(endpoint->bEndpointAddress & USB_ENDPOINT_ADDRESS_MASK)
-                      << "(" << ((endpoint->bEndpointAddress & USB_ENDPOINT_DIR_MASK) ? "IN" : "OUT") << ")"
-                      << std::endl;
-
-          if (altsetting->bInterfaceClass    == USB_CLASS_VENDOR_SPEC &&
-              altsetting->bInterfaceSubClass == 93 &&
-              altsetting->bInterfaceProtocol == 1)
+          if (endpoint->bEndpointAddress & LIBUSB_ENDPOINT_DIR_MASK)
           {
-            if (endpoint->bEndpointAddress & USB_ENDPOINT_DIR_MASK)
-            {
-              endpoint_in = int(endpoint->bEndpointAddress & USB_ENDPOINT_ADDRESS_MASK);
-            }
-            else
-            {
-              endpoint_out = int(endpoint->bEndpointAddress & USB_ENDPOINT_ADDRESS_MASK);
-            }
+            endpoint_in = int(endpoint->bEndpointAddress & LIBUSB_ENDPOINT_ADDRESS_MASK);
+          }
+          else
+          {
+            endpoint_out = int(endpoint->bEndpointAddress & LIBUSB_ENDPOINT_ADDRESS_MASK);
           }
         }
       }
     }
   }
+
+  libusb_free_config_descriptor(config);
 }
 
 void
 XboxController::set_rumble(uint8_t left, uint8_t right)
 {
-  char rumblecmd[] = { 0x00, 0x06, 0x00, left, 0x00, right };
-  usb_interrupt_write(handle, endpoint_out, rumblecmd, sizeof(rumblecmd), 0);
+  uint8_t rumblecmd[] = { 0x00, 0x06, 0x00, left, 0x00, right };
+  int transferred = 0;
+  int ret = libusb_interrupt_transfer(handle, LIBUSB_ENDPOINT_OUT | endpoint_out, 
+                                      rumblecmd, sizeof(rumblecmd), &transferred, 0);
+  if (ret != LIBUSB_SUCCESS)
+  {
+    raise_exception(std::runtime_error, "libusb_interrupt_transfer() failed: " << usb_strerror(ret));
+  }
 }
 
 void
@@ -121,29 +125,32 @@ XboxController::set_led(uint8_t status)
 }
 
 bool
-XboxController::read(XboxGenericMsg& msg, bool verbose, int timeout)
+XboxController::read(XboxGenericMsg& msg, int timeout)
 {
   // FIXME: Add tracking for duplicate data packages (send by logitech controller)
   uint8_t data[32];
-  int ret = usb_interrupt_read(handle, endpoint_in, reinterpret_cast<char*>(data), sizeof(data), timeout);
+  int len = 0;
+  int ret = libusb_interrupt_transfer(handle, LIBUSB_ENDPOINT_IN | endpoint_in,
+                                      data, sizeof(data), &len, timeout);
 
-  if (ret == -ETIMEDOUT)
+  if (ret == LIBUSB_ERROR_TIMEOUT)
   {
     return false;
   }
-  else if (ret < 0)
-  { // Error
-    std::ostringstream str;
-    str << "USBError: " << ret << "\n" << usb_strerror();
-    throw std::runtime_error(str.str());
+  else if (ret != LIBUSB_SUCCESS)
+  {
+    raise_exception(std::runtime_error, "libusb_interrupt_transfer() failed: " << usb_strerror(ret));
   }
-  else if (ret == 20 && data[0] == 0x00 && data[1] == 0x14)
+  else if (len == 20 && data[0] == 0x00 && data[1] == 0x14)
   {
     msg.type = XBOX_MSG_XBOX;
     memcpy(&msg.xbox, data, sizeof(XboxMsg));
     return true;
   }
-  return false;
+  else
+  {
+    return false;
+  }
 }
 
 /* EOF */

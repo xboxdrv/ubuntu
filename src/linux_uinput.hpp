@@ -21,8 +21,6 @@
 
 #include <boost/function.hpp>
 #include <linux/uinput.h>
-#include <string>
-#include <stdint.h>
 
 class ForceFeedbackHandler;
 
@@ -36,6 +34,8 @@ private:
   std::string name;
   uint16_t    vendor;
   uint16_t    product;
+
+  bool m_finished;
 
   int fd;
   uinput_user_dev user_dev;
@@ -82,7 +82,7 @@ public:
   /** Sends out a sync event if there is a need for it. */
   void sync();
 
-  void update_force_feedback(int msec_delta);
+  void update(int msec_delta);
 
 private:
   LinuxUinput (const LinuxUinput&);

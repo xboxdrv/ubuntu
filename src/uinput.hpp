@@ -19,37 +19,20 @@
 #ifndef HEADER_UINPUT_HPP
 #define HEADER_UINPUT_HPP
 
-#include <vector>
-#include <map>
-#include <memory>
-#include <stdexcept>
-#include <boost/shared_ptr.hpp>
+#include <boost/thread/mutex.hpp>
 
 #include "axis_event.hpp"
-#include "button_event.hpp"
-#include "evdev_helper.hpp"
 #include "linux_uinput.hpp"
-#include "uinput_cfg.hpp"
-#include "xboxdrv.hpp"
-#include "xpad_device.hpp"
 
 struct Xbox360Msg;
 struct XboxMsg;
 struct Xbox360GuitarMsg;
   
-class uInput
+class UInput
 {
 private:
-  int m_vendor_id;
-  int m_product_id;
-
-  typedef std::map<int, boost::shared_ptr<LinuxUinput> > uInputDevs;
-  uInputDevs uinput_devs;
-  uInputCfg cfg;
-
-  int  axis_state[XBOX_AXIS_MAX];
-  bool button_state[XBOX_BTN_MAX];
-  bool last_button_state[XBOX_BTN_MAX];
+  typedef std::map<uint32_t, boost::shared_ptr<LinuxUinput> > UInputDevs;
+  UInputDevs uinput_devs;
 
   struct RelRepeat 
   {
@@ -61,40 +44,49 @@ private:
 
   std::map<UIEvent, RelRepeat> rel_repeat_lst;
 
-public:
-  static bool is_mouse_button(int ev_code);
-  static bool is_keyboard_button(int ev_code);
+  boost::mutex m_mutex;
 
 public:
-  uInput(GamepadType type, int vendor_id, int product_id, uInputCfg cfg = uInputCfg());
-  ~uInput();
+  UInput();
+  ~UInput();
 
-  void send(XboxGenericMsg& msg); 
   void update(int msec_delta);
-  void set_ff_callback(const boost::function<void (uint8_t, uint8_t)>& callback);
 
-  void add_rel(int device_id, int ev_code);
-  void add_abs(int device_id, int ev_code, int min, int max, int fuzz, int flat);
-  void add_key(int device_id, int ev_code);
+  void set_ff_callback(int device_id, const boost::function<void (uint8_t, uint8_t)>& callback);
 
-  void send_key(int device_id, int ev_code, bool value);
+  /** Device construction functions
+      @{*/
+  void add_rel(uint32_t device_id, int ev_code);
+  void add_abs(uint32_t device_id, int ev_code, int min, int max, int fuzz, int flat);
+  void add_key(uint32_t device_id, int ev_code);
+  void add_ff(uint32_t device_id, uint16_t code);
+
+  /** needs to be called to finish device creation and create the
+      device in the kernel */
+  void finish();
+  /** @} */
+
+  /** Send events to the kernel
+      @{*/
+  void send(uint32_t device_id, int ev_type, int ev_code, int value);
+  void send_abs(uint32_t device_id, int ev_code, int value);
+  void send_key(uint32_t device_id, int ev_code, bool value);
   void send_rel_repetitive(const UIEvent& code, int value, int repeat_interval);
+
+  /** should be called to single that all events of the current frame
+      have been send */
   void sync();
+  /** @} */
 
-  LinuxUinput* get_uinput(int device_id) const;
-  LinuxUinput* get_force_feedback_uinput() const;
-
-  void create_uinput_device(int device_id);
+  boost::mutex& get_mutex() { return m_mutex; }
 
 private:
-  void send(Xbox360Msg& msg);
-  void send(Xbox360GuitarMsg& msg);
-  void send(XboxMsg& msg);
+  /** create a LinuxUinput with the given device_id, if some already
+      exist return a pointer to it */
+  LinuxUinput* create_uinput_device(uint32_t device_id);
 
-  void send_button(XboxButton code, bool value);
-  void send_axis(XboxAxis code, int32_t value);
-
-  void reset_all_outputs();
+  /** must only be called with a valid device_id */
+  LinuxUinput* get_uinput(uint32_t device_id) const;
 };
 
 #endif

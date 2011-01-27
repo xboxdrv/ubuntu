@@ -16,121 +16,99 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <X11/Xlib.h>
-#include <linux/input.h>
-#include <boost/lexical_cast.hpp>
-#include <iostream>
-#include <sstream>
-#include <stdexcept>
-#include <map>
-#include <ctype.h>
-
-#include "enum_box.hpp"
 #include "evdev_helper.hpp"
+
+#include <linux/input.h>
+
+#include "log.hpp"
 
-class EvDevRelEnum : public EnumBox<int>
-{
-public:
-  EvDevRelEnum() :
-    EnumBox<int>("EV_REL")
-  {
-#include "rel_list.x"
-  }
-} evdev_rel_names;
+EvDevRelEnum evdev_rel_names;
+EvDevKeyEnum evdev_key_names;
+EvDevAbsEnum evdev_abs_names;
 
-class EvDevAbsEnum : public EnumBox<int>
+const X11KeysymEnum& get_x11keysym_names()
 {
-public:
-  EvDevAbsEnum() :
+  static X11KeysymEnum x11keysym_names;
+  return x11keysym_names;
+}
+
+EvDevRelEnum::EvDevRelEnum() :
+  EnumBox<int>("EV_REL")
+{
+#  include "rel_list.x"
+}
+
+EvDevAbsEnum::EvDevAbsEnum() :
     EnumBox<int>("EV_ABS")
-  {
-#include "abs_list.x"
-  }
-} evdev_abs_names;
-
-class EvDevKeyEnum : public EnumBox<int>
 {
-public:
-  EvDevKeyEnum() :
-    EnumBox<int>("EV_KEY")
-  {
-#include "key_list.x"
-  }
-} evdev_key_names;
+#  include "abs_list.x"
+}
 
-class Keysym2Keycode
+
+EvDevKeyEnum::EvDevKeyEnum() :
+  EnumBox<int>("EV_KEY")
 {
-public:
-  // Map KeySym to kernel keycode
-  std::map<KeySym, int> mapping;
-
-  Keysym2Keycode() :
-    mapping()
-  {
-    //std::cout << "Initing Keysym2Keycode" << std::endl;
-
-    Display* dpy = XOpenDisplay(NULL);
-    if (!dpy)
-    {
-      throw std::runtime_error("Keysym2Keycode: Couldn't open X11 display");
-    }
-    else
-    {
-      process_keymap(dpy);
-      XCloseDisplay(dpy);
-    }
-  }
-
-  void process_keymap(Display* dpy)
-  {
-    int min_keycode, max_keycode;
-    XDisplayKeycodes(dpy, &min_keycode, &max_keycode);
-
-    int num_keycodes = max_keycode - min_keycode + 1;
-    int keysyms_per_keycode;
-    KeySym* keymap = XGetKeyboardMapping(dpy, static_cast<KeyCode>(min_keycode),
-                                         num_keycodes,
-                                         &keysyms_per_keycode);
-
-    for(int i = 0; i < num_keycodes; ++i)
-    {
-      if (keymap[i*keysyms_per_keycode] != NoSymbol)
-      {
-        KeySym keysym = keymap[i*keysyms_per_keycode];
-        // FIXME: Duplicate entries confuse the conversion
-        // std::map<KeySym, int>::iterator it = mapping.find(keysym);
-        // if (it != mapping.end())
-        //   std::cout << "Duplicate keycode: " << i << std::endl;
-        mapping[keysym] = i;
-      }
-    }
-
-    XFree(keymap);
-  }
-};
+#  include "key_list.x"
+}
 
-int xkeysym2keycode(const std::string& name)
+X11KeysymEnum::X11KeysymEnum() :
+  EnumBox<int>("X11Keysym")
 {
-  static Keysym2Keycode sym2code;
-
-  KeySym keysym = XStringToKeysym(name.substr(3).c_str());
-
-  if (keysym == NoSymbol)
+  Display* dpy = XOpenDisplay(NULL);
+  if (!dpy)
   {
-    throw std::runtime_error("xkeysym2keycode: Couldn't convert name '" + name + "' to xkeysym");
-  }
-
-  std::map<KeySym, int>::iterator i = sym2code.mapping.find(keysym);
-  if (i == sym2code.mapping.end())
-  {
-    throw std::runtime_error("xkeysym2keycode: Couldn't convert xkeysym '" + name + "' to evdev keycode");
+    log_error("unable to open X11 display, X11 keynames will not be available");
   }
   else
   {
-    //std::cout << name << " -> " << keysym << " -> " << XKeysymToString(keysym) 
-    //          << " -> " << key2str(i->second) << "(" << i->second << ")" << std::endl;
-    return i->second;
+    process_keymap(dpy);
+    XCloseDisplay(dpy);
   }
+}
+
+void 
+X11KeysymEnum::process_keymap(Display* dpy)
+{
+  int min_keycode, max_keycode;
+  XDisplayKeycodes(dpy, &min_keycode, &max_keycode);
+
+  int num_keycodes = max_keycode - min_keycode + 1;
+  int keysyms_per_keycode;
+  KeySym* keymap = XGetKeyboardMapping(dpy, static_cast<KeyCode>(min_keycode),
+                                       num_keycodes,
+                                       &keysyms_per_keycode);
+
+  for(int i = 0; i < num_keycodes; ++i)
+  {
+    if (keymap[i*keysyms_per_keycode] != NoSymbol)
+    {
+      KeySym keysym = keymap[i*keysyms_per_keycode];
+
+      // FIXME: Duplicate entries confuse the conversion
+      // std::map<KeySym, int>::iterator it = mapping.find(keysym);
+      // if (it != mapping.end())
+      //   std::cout << "Duplicate keycode: " << i << std::endl;
+
+      const char* keysym_str = XKeysymToString(keysym);
+      if (!keysym_str)
+      {
+        log_warn("couldn't convert keysym " << keysym << " to string");
+      }
+      else
+      {
+        std::ostringstream str;
+        str << "XK_" << keysym_str;
+        add(i, str.str());
+      }
+    }
+  }
+
+  XFree(keymap);
+}
+
+int xkeysym2keycode(const std::string& name)
+{
+  return get_x11keysym_names()[name];
 }
 
 void str2event(const std::string& name, int& type, int& code)
@@ -250,25 +228,28 @@ int str2rel(const std::string& name)
 
 UIEvent str2key_event(const std::string& str)
 {
+  int slot_id;
   int device_id;
   std::string rest;
-  split_event_name(str, &rest, &device_id);
+  split_event_name(str, &rest, &slot_id, &device_id);
   return UIEvent::create(device_id, EV_KEY, str2key(rest));
 }
 
 UIEvent str2rel_event(const std::string& str)
 {
+  int slot_id;
   int device_id;
   std::string rest;
-  split_event_name(str, &rest, &device_id);
+  split_event_name(str, &rest, &slot_id, &device_id);
   return UIEvent::create(device_id, EV_REL, str2rel(rest));
 }
 
 UIEvent str2abs_event(const std::string& str)
 {
+  int slot_id;
   int device_id;
   std::string rest;
-  split_event_name(str, &rest, &device_id);
+  split_event_name(str, &rest, &slot_id, &device_id);
   return UIEvent::create(device_id, EV_ABS, str2abs(rest));
 }
 

@@ -16,23 +16,14 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <assert.h>
-#include <boost/lexical_cast.hpp>
+#include "button_event.hpp"
+
 #include <boost/tokenizer.hpp>
-#include <errno.h>
-#include <iostream>
-#include <linux/input.h>
-#include <memory>
-#include <stdexcept>
-#include <string.h>
-#include <unistd.h>
 #include <fstream>
 
-#include "helper.hpp"
-#include "button_event.hpp"
 #include "evdev_helper.hpp"
+#include "log.hpp"
 #include "uinput.hpp"
-#include "uinput_deviceid.hpp"
 
 ButtonEventPtr
 ButtonEvent::invalid()
@@ -135,13 +126,13 @@ ButtonEvent::add_filter(ButtonFilterPtr filter)
 }
 
 void
-ButtonEvent::init(uInput& uinput) const
+ButtonEvent::init(UInput& uinput, int slot, bool extra_devices)
 {
-  return m_handler->init(uinput);
+  return m_handler->init(uinput, slot, extra_devices);
 }
 
 void
-ButtonEvent::send(uInput& uinput, bool raw_state)
+ButtonEvent::send(UInput& uinput, bool raw_state)
 {
   m_last_raw_state = raw_state;
   bool filtered_state = raw_state;
@@ -164,7 +155,7 @@ ButtonEvent::send(uInput& uinput, bool raw_state)
 }
 
 void
-ButtonEvent::update(uInput& uinput, int msec_delta)
+ButtonEvent::update(UInput& uinput, int msec_delta)
 {
   for(std::vector<ButtonFilterPtr>::const_iterator i = m_filters.begin(); i != m_filters.end(); ++i)
   {
@@ -267,25 +258,26 @@ KeyButtonEventHandler::KeyButtonEventHandler(int code) :
 }
 
 void
-KeyButtonEventHandler::init(uInput& uinput) const
+KeyButtonEventHandler::init(UInput& uinput, int slot, bool extra_devices)
 {
   for(int i = 0; m_codes[i].is_valid(); ++i)
   {
-    uinput.create_uinput_device(m_codes[i].device_id);
-    uinput.add_key(m_codes[i].device_id, m_codes[i].code);
+    m_codes[i].resolve_device_id(slot, extra_devices);
+    uinput.add_key(m_codes[i].get_device_id(), m_codes[i].code);
   }
 
   if (m_hold_threshold)
   {
     for(int i = 0; m_secondary_codes[i].is_valid(); ++i)
     {
-      uinput.add_key(m_secondary_codes[i].device_id, m_secondary_codes[i].code);
+      m_secondary_codes[i].resolve_device_id(slot, extra_devices);
+      uinput.add_key(m_secondary_codes[i].get_device_id(), m_secondary_codes[i].code);
     }
   }
 }
 
 void
-KeyButtonEventHandler::send(uInput& uinput, bool value)
+KeyButtonEventHandler::send(UInput& uinput, bool value)
 {
   if (m_state != value)
   {
@@ -296,7 +288,7 @@ KeyButtonEventHandler::send(uInput& uinput, bool value)
       // FIXME: should handle key releases in reverse order
       for(int i = 0; m_codes[i].is_valid(); ++i)
       {
-        uinput.send_key(m_codes[i].device_id, m_codes[i].code, m_state);
+        uinput.send_key(m_codes[i].get_device_id(), m_codes[i].code, m_state);
       }
     }
     else
@@ -313,12 +305,12 @@ KeyButtonEventHandler::send(uInput& uinput, bool value)
           // send both a press and release event after another, aka a "click"
           for(int i = 0; m_codes[i].is_valid(); ++i)
           {
-            uinput.send_key(m_codes[i].device_id, m_codes[i].code, true);
+            uinput.send_key(m_codes[i].get_device_id(), m_codes[i].code, true);
           }
           // FIXME: should do this in reverse order
           for(int i = 0; m_codes[i].is_valid(); ++i)
           {
-            uinput.send_key(m_codes[i].device_id, m_codes[i].code, false);
+            uinput.send_key(m_codes[i].get_device_id(), m_codes[i].code, false);
           }
         }
       }
@@ -333,7 +325,7 @@ KeyButtonEventHandler::send(uInput& uinput, bool value)
           // FIXME: should do in reverse
           for(int i = 0; m_secondary_codes[i].is_valid(); ++i)
           {
-            uinput.send_key(m_secondary_codes[i].device_id, m_secondary_codes[i].code, false);
+            uinput.send_key(m_secondary_codes[i].get_device_id(), m_secondary_codes[i].code, false);
           }
         }
       }
@@ -347,7 +339,7 @@ KeyButtonEventHandler::send(uInput& uinput, bool value)
 }
 
 void
-KeyButtonEventHandler::update(uInput& uinput, int msec_delta) 
+KeyButtonEventHandler::update(UInput& uinput, int msec_delta) 
 {
   if (m_state && m_hold_threshold)
   {
@@ -357,7 +349,7 @@ KeyButtonEventHandler::update(uInput& uinput, int msec_delta)
       // start sending the secondary events
       for(int i = 0; m_secondary_codes[i].is_valid(); ++i)
       {
-        uinput.send_key(m_secondary_codes[i].device_id, m_secondary_codes[i].code, true);
+        uinput.send_key(m_secondary_codes[i].get_device_id(), m_secondary_codes[i].code, true);
       }
       uinput.sync();
     }
@@ -375,7 +367,7 @@ KeyButtonEventHandler::str() const
   std::ostringstream out;
   for(int i = 0; m_codes[i].is_valid();)
   {
-    out << m_codes[i].device_id << "-" << m_codes[i].code;
+    out << m_codes[i].get_device_id() << "-" << m_codes[i].code;
 
     ++i;
     if (m_codes[i].is_valid())
@@ -400,17 +392,16 @@ AbsButtonEventHandler::AbsButtonEventHandler(int code) :
 }
 
 void
-AbsButtonEventHandler::init(uInput& uinput) const
+AbsButtonEventHandler::init(UInput& uinput, int slot, bool extra_devices)
 {
-  uinput.create_uinput_device(m_code.device_id);
 }
 
 void
-AbsButtonEventHandler::send(uInput& uinput, bool value)
+AbsButtonEventHandler::send(UInput& uinput, bool value)
 {
   if (value)
   {
-    uinput.get_uinput(m_code.device_id)->send(EV_ABS, m_code.code, m_value);
+    uinput.send_abs(m_code.get_device_id(), m_code.code, m_value);
   }
 }
 
@@ -418,7 +409,7 @@ std::string
 AbsButtonEventHandler::str() const
 {
   std::ostringstream out;
-  out << "abs: " << m_code.device_id << "-" << m_code.code << ":" << m_value; 
+  out << "abs: " << m_code.get_device_id() << "-" << m_code.code << ":" << m_value; 
   return out.str();
 }
 
@@ -460,14 +451,14 @@ RelButtonEventHandler::RelButtonEventHandler(const UIEvent& code) :
 }
 
 void
-RelButtonEventHandler::init(uInput& uinput) const
+RelButtonEventHandler::init(UInput& uinput, int slot, bool extra_devices)
 {
-  uinput.create_uinput_device(m_code.device_id);
-  uinput.get_uinput(m_code.device_id)->add_rel(m_code.code);
+  m_code.resolve_device_id(slot, extra_devices);
+  uinput.add_rel(m_code.get_device_id(), m_code.code);
 }
 
 void
-RelButtonEventHandler::send(uInput& uinput, bool value)
+RelButtonEventHandler::send(UInput& uinput, bool value)
 {
   if (value)
   {
@@ -483,7 +474,7 @@ std::string
 RelButtonEventHandler::str() const
 {
   std::ostringstream out;
-  out << "rel:" << m_code.device_id << "-" << m_code.code << ":" << m_value << ":" << m_repeat;
+  out << "rel:" << m_code.get_device_id() << "-" << m_code.code << ":" << m_value << ":" << m_repeat;
   return out.str();
 }
 
@@ -506,13 +497,13 @@ ExecButtonEventHandler::ExecButtonEventHandler(const std::vector<std::string>& a
 }
 
 void
-ExecButtonEventHandler::init(uInput& uinput) const
+ExecButtonEventHandler::init(UInput& uinput, int slot, bool extra_devices)
 {
   // nothing to do
 }
 
 void
-ExecButtonEventHandler::send(uInput& uinput, bool value)
+ExecButtonEventHandler::send(UInput& uinput, bool value)
 {
   if (value)
   {
@@ -528,8 +519,8 @@ ExecButtonEventHandler::send(uInput& uinput, bool value)
 
       if (execvp(m_args[0].c_str(), argv) == -1)
       {
-        std::cout << "error: ExecButtonEventHandler::send(): " << strerror(errno) << std::endl;
-        exit(EXIT_FAILURE);
+        log_error("exec failed: " << strerror(errno));
+        _exit(EXIT_FAILURE);
       }
     }
   }
@@ -625,27 +616,30 @@ MacroButtonEventHandler::macro_event_from_string(const std::string& str)
 
 MacroButtonEventHandler::MacroButtonEventHandler(const std::vector<MacroEvent>& events) :
   m_events(events),
-  m_send_in_progress(false)
+  m_send_in_progress(false),
+  m_countdown(0),
+  m_event_counter()
 {
 }
 
 void
-MacroButtonEventHandler::init(uInput& uinput) const
+MacroButtonEventHandler::init(UInput& uinput, int slot, bool extra_devices)
 {
-  for(std::vector<MacroEvent>::const_iterator i = m_events.begin(); i != m_events.end(); ++i)
+  for(std::vector<MacroEvent>::iterator i = m_events.begin(); i != m_events.end(); ++i)
   {
     switch(i->type)
     {
       case MacroEvent::kSendOp:
-        uinput.create_uinput_device(i->send.event.device_id);
         switch(i->send.event.type)
         {
           case EV_REL:
-            uinput.add_rel(i->send.event.device_id, i->send.event.code);
+            i->send.event.resolve_device_id(slot, extra_devices),
+            uinput.add_rel(i->send.event.get_device_id(), i->send.event.code);
             break;
 
           case EV_KEY:
-            uinput.add_key(i->send.event.device_id, i->send.event.code);
+            i->send.event.resolve_device_id(slot, extra_devices),
+            uinput.add_key(i->send.event.get_device_id(), i->send.event.code);
             break;
 
           default:
@@ -662,7 +656,7 @@ MacroButtonEventHandler::init(uInput& uinput) const
 }
 
 void
-MacroButtonEventHandler::send(uInput& uinput, bool value)
+MacroButtonEventHandler::send(UInput& uinput, bool value)
 {
   if (value && !m_send_in_progress)
   {
@@ -673,7 +667,7 @@ MacroButtonEventHandler::send(uInput& uinput, bool value)
 }
 
 void
-MacroButtonEventHandler::update(uInput& uinput, int msec_delta)
+MacroButtonEventHandler::update(UInput& uinput, int msec_delta)
 {
   if (m_send_in_progress)
   {
@@ -685,10 +679,10 @@ MacroButtonEventHandler::update(uInput& uinput, int msec_delta)
         switch(m_events[m_event_counter].type)
         {
           case MacroEvent::kSendOp:
-            uinput.get_uinput(m_events[m_event_counter].send.event.device_id)
-              ->send(m_events[m_event_counter].send.event.type,
-                     m_events[m_event_counter].send.event.code,
-                     m_events[m_event_counter].send.value);
+            uinput.send(m_events[m_event_counter].send.event.get_device_id(),
+                        m_events[m_event_counter].send.event.type,
+                        m_events[m_event_counter].send.event.code,
+                        m_events[m_event_counter].send.value);
             break;
 
           case MacroEvent::kWaitOp:

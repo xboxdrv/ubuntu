@@ -16,59 +16,31 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <boost/bind.hpp>
+#include "xboxdrv.hpp"
+
 #include <boost/format.hpp>
-#include <boost/function.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/scoped_array.hpp>
-#include <ctype.h>
-#include <errno.h>
+#include <boost/algorithm/string/join.hpp>
 #include <iostream>
-#include <math.h>
 #include <signal.h>
 #include <stdio.h>
-#include <string.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <time.h>
-#include <unistd.h>
-#include <usb.h>
 
-#include "modifier/autofire_modifier.hpp"
-#include "modifier/axis_sensitivty_modifier.hpp"
-#include "modifier/axismap_modifier.hpp"
-#include "modifier/button_map_modifier.hpp"
-#include "modifier/calibration_modifier.hpp"
-#include "modifier/deadzone_modifier.hpp"
-#include "modifier/dpad_rotation_modifier.hpp"
-#include "modifier/four_way_restrictor_modifier.hpp"
-#include "modifier/relativeaxis_modifier.hpp"
-#include "modifier/square_axis_modifier.hpp"
-
-#include "uinput.hpp"
-#include "xboxmsg.hpp"
-#include "xbox_controller.hpp"
-#include "xbox360_controller.hpp"
-#include "xbox360_wireless_controller.hpp"
-#include "firestorm_dual_controller.hpp"
-#include "saitek_p2500_controller.hpp"
-#include "evdev_controller.hpp"
-#include "helper.hpp"
-#include "evdev_helper.hpp"
 #include "command_line_options.hpp"
-#include "options.hpp"
-#include "xbox_generic_controller.hpp"
-
-#include "xboxdrv.hpp"
+#include "dummy_message_processor.hpp"
+#include "evdev_controller.hpp"
+#include "evdev_helper.hpp"
+#include "helper.hpp"
+#include "raise_exception.hpp"
+#include "uinput_message_processor.hpp"
+#include "usb_helper.hpp"
+#include "word_wrap.hpp"
+#include "xbox_controller_factory.hpp"
+#include "xboxdrv_daemon.hpp"
+#include "xboxdrv_thread.hpp"
 
 // Some ugly global variables, needed for sigint catching
 bool global_exit_xboxdrv = false;
 XboxGenericController* global_controller = 0;
 
-// FIXME: isolate problametic code to a separate file, instead of pragma
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-
 void on_sigint(int)
 {
   if (global_exit_xboxdrv)
@@ -83,8 +55,6 @@ void on_sigint(int)
       std::cout << "Shutdown initiated, press Ctrl-c again if nothing is happening" << std::endl;
 
     global_exit_xboxdrv = true; 
-    if (global_controller)
-      global_controller->set_led(0);
   }
 }
 
@@ -93,42 +63,37 @@ void on_sigterm(int)
   if (!g_options->quiet)
     std::cout << "Shutdown initiated by SIGTERM" << std::endl;
 
-  if (global_controller)
-    global_controller->set_led(0);
-
   exit(EXIT_SUCCESS);
-}
-
-void set_rumble(XboxGenericController* controller, int gain, uint8_t lhs, uint8_t rhs)
-{
-  lhs = std::min(lhs * gain / 255, 255);
-  rhs = std::min(rhs * gain / 255, 255);
-  
-  //std::cout << (int)lhs << " " << (int)rhs << std::endl;
-
-  controller->set_rumble(lhs, rhs);
 }
 
 void
 Xboxdrv::run_list_controller()
 {
-  usb_init();
-  usb_find_busses();
-  usb_find_devices();
+  int ret = libusb_init(NULL);
+  if (ret != LIBUSB_SUCCESS)
+  {
+    raise_exception(std::runtime_error, "libusb_init() failed: " << usb_strerror(ret));
+  }
 
-  struct usb_bus* busses = usb_get_busses();
+  libusb_device** list;
+  ssize_t num_devices = libusb_get_device_list(NULL, &list);
 
   int id = 0;
   std::cout << " id | wid | idVendor | idProduct | Name" << std::endl;
   std::cout << "----+-----+----------+-----------+--------------------------------------" << std::endl;
-  for (struct usb_bus* bus = busses; bus; bus = bus->next)
+
+  for(ssize_t dev_it = 0; dev_it < num_devices; ++dev_it)
   {
-    for (struct usb_device* dev = bus->devices; dev; dev = dev->next) 
+    libusb_device* dev = list[dev_it];
+    libusb_device_descriptor desc;
+
+    // FIXME: we silently ignore failures
+    if (libusb_get_device_descriptor(dev, &desc) == LIBUSB_SUCCESS)
     {
       for(int i = 0; i < xpad_devices_count; ++i)
       {
-        if (dev->descriptor.idVendor  == xpad_devices[i].idVendor &&
-            dev->descriptor.idProduct == xpad_devices[i].idProduct)
+        if (desc.idVendor  == xpad_devices[i].idVendor &&
+            desc.idProduct == xpad_devices[i].idProduct)
         {
           if (xpad_devices[i].type == GAMEPAD_XBOX360_WIRELESS)
           {
@@ -163,28 +128,38 @@ Xboxdrv::run_list_controller()
 
   if (id == 0)
     std::cout << "\nNo controller detected" << std::endl; 
+
+  libusb_free_device_list(list, 1 /* unref_devices */);
 }
 
 bool
-Xboxdrv::find_controller_by_path(const std::string& busid, const std::string& devid,struct usb_device** xbox_device) const
+Xboxdrv::find_controller_by_path(const std::string& busid_str, const std::string& devid_str, 
+                                 libusb_device** xbox_device) const
 {
-  struct usb_bus* busses = usb_get_busses();
+  int busid = boost::lexical_cast<int>(busid_str);
+  int devid = boost::lexical_cast<int>(devid_str);
 
-  for (struct usb_bus* bus = busses; bus; bus = bus->next)
+  libusb_device** list;
+  ssize_t num_devices = libusb_get_device_list(NULL, &list);
+
+  for(ssize_t dev_it = 0; dev_it < num_devices; ++dev_it)
   {
-    if (bus->dirname == busid)
+    libusb_device* dev = list[dev_it];
+
+    if (libusb_get_bus_number(dev)     == busid &&
+        libusb_get_device_address(dev) == devid)
     {
-      for (struct usb_device* dev = bus->devices; dev; dev = dev->next) 
-      {
-        if (dev->filename == devid)
-        {
-          *xbox_device = dev;
-          return true;
-        }
-      }
+      *xbox_device = dev;
+
+      // incrementing ref count, user must call unref
+      libusb_ref_device(*xbox_device);
+      libusb_free_device_list(list, 1 /* unref_devices */);
+      return true;
     }
   }
-  return 0;
+
+  libusb_free_device_list(list, 1 /* unref_devices */);
+  return false;
 }
 
 /** find the number of the next unused /dev/input/jsX device */
@@ -220,262 +195,122 @@ Xboxdrv::find_evdev_number() const
 }
 
 bool
-Xboxdrv::find_controller_by_id(int id, int vendor_id, int product_id, struct usb_device** xbox_device) const
+Xboxdrv::find_controller_by_id(int id, int vendor_id, int product_id, libusb_device** xbox_device) const
 {
-  struct usb_bus* busses = usb_get_busses();
+  libusb_device** list;
+  ssize_t num_devices = libusb_get_device_list(NULL, &list);
 
   int id_count = 0;
-  for (struct usb_bus* bus = busses; bus; bus = bus->next)
+  for(ssize_t dev_it = 0; dev_it < num_devices; ++dev_it)
   {
-    for (struct usb_device* dev = bus->devices; dev; dev = dev->next) 
+    libusb_device* dev = list[dev_it];
+    libusb_device_descriptor desc;
+
+    int ret = libusb_get_device_descriptor(dev, &desc);
+    if (ret != LIBUSB_SUCCESS)
     {
-      if (dev->descriptor.idVendor  == vendor_id &&
-          dev->descriptor.idProduct == product_id)
+      log_warn("libusb_get_device_descriptor() failed: " << usb_strerror(ret));
+    }
+    else
+    {
+      if (desc.idVendor  == vendor_id &&
+          desc.idProduct == product_id)
       {
         if (id_count == id)
         {
           *xbox_device = dev;
+          // increment ref count, user must free the device
+          libusb_ref_device(*xbox_device);
+          libusb_free_device_list(list, 1 /* unref_devices */);
           return true;
         }
         else
         {
           id_count += 1;
-          break;
         }
       }
     }
   }
-  return 0;
-  
+
+  libusb_free_device_list(list, 1 /* unref_devices */);
+  return false;
 }
 
 bool
-Xboxdrv::find_xbox360_controller(int id, struct usb_device** xbox_device, XPadDevice* type) const
+Xboxdrv::find_xbox360_controller(int id, libusb_device** xbox_device, XPadDevice* type) const
 {
-  struct usb_bus* busses = usb_get_busses();
+  libusb_device** list;
+  ssize_t num_devices = libusb_get_device_list(NULL, &list);
 
   int id_count = 0;
-  for (struct usb_bus* bus = busses; bus; bus = bus->next)
+  for(ssize_t dev_it = 0; dev_it < num_devices; ++dev_it)
   {
-    for (struct usb_device* dev = bus->devices; dev; dev = dev->next) 
-    {
-      if (0)
-        std::cout << (boost::format("UsbDevice: idVendor: 0x%04x idProduct: 0x%04x")
-                      % int(dev->descriptor.idProduct)
-                      % int(dev->descriptor.idVendor))
-                  << std::endl;
+    libusb_device* dev = list[dev_it];
+    libusb_device_descriptor desc;
 
+    int ret = libusb_get_device_descriptor(dev, &desc);
+    if (ret != LIBUSB_SUCCESS)
+    {
+      log_warn("libusb_get_device_descriptor() failed: " << usb_strerror(ret));
+    }
+    else
+    {
       for(int i = 0; i < xpad_devices_count; ++i)
       {
-        if (dev->descriptor.idVendor  == xpad_devices[i].idVendor &&
-            dev->descriptor.idProduct == xpad_devices[i].idProduct)
+        if (desc.idVendor  == xpad_devices[i].idVendor &&
+            desc.idProduct == xpad_devices[i].idProduct)
         {
           if (id_count == id)
           {
             *xbox_device = dev;
             *type        = xpad_devices[i];
+            // increment ref count, user must free the device
+            libusb_ref_device(*xbox_device);
+            libusb_free_device_list(list, 1 /* unref_devices */);
             return true;
           }
           else
           {
             id_count += 1;
-            break;
           }
         }
       }
     }
   }
-  return 0;
+
+  libusb_free_device_list(list, 1 /* unref_devices */);
+  return false;
 }
 
 void
-Xboxdrv::controller_loop(GamepadType type, uInput* uinput, XboxGenericController* controller, const Options& opts)
-{
-  int timeout = 0; // 0 == no timeout
-  XboxGenericMsg oldmsg; // last data send to uinput
-  XboxGenericMsg oldrealmsg; // last data read from the device
-
-  std::vector<ModifierPtr> modifier;
-
-  // Create filter
-  if (!opts.calibration_map.empty())
-    modifier.push_back(ModifierPtr(new CalibrationModifier(opts.calibration_map)));
-  
-  if (opts.deadzone != 0 || opts.deadzone_trigger != 0)
-    modifier.push_back(ModifierPtr(new DeadzoneModifier(opts.deadzone, opts.deadzone_trigger)));
-
-  if (opts.square_axis)
-    modifier.push_back(ModifierPtr(new SquareAxisModifier()));
-
-  if (!opts.axis_sensitivity_map.empty())
-    modifier.push_back(ModifierPtr(new AxisSensitivityModifier(opts.axis_sensitivity_map)));
-  
-  if (opts.four_way_restrictor)
-    modifier.push_back(ModifierPtr(new FourWayRestrictorModifier()));
-
-  if (opts.dpad_rotation)
-    modifier.push_back(ModifierPtr(new DpadRotationModifier(opts.dpad_rotation)));
-
-  if (!opts.autofire_map.empty())
-    modifier.push_back(ModifierPtr(new AutoFireModifier(opts.autofire_map)));
-
-  if (!opts.relative_axis_map.empty())
-    modifier.push_back(ModifierPtr(new RelativeAxisModifier(opts.relative_axis_map)));
-
-  if (!opts.button_map.empty())
-    modifier.push_back(ModifierPtr(new ButtonMapModifier(opts.button_map)));
-    
-  if (!opts.axis_map.empty())
-    modifier.push_back(ModifierPtr(new AxismapModifier(opts.axis_map)));
-
-  // how long to wait for a controller event before taking care of autofire etc.
-  timeout = 25; 
-
-  memset(&oldmsg,     0, sizeof(oldmsg));
-  memset(&oldrealmsg, 0, sizeof(oldrealmsg));
-
-  pid_t pid = -1;
-
-  if (!opts.exec.empty())
-  { // launch program if one was given
-    pid = fork();
-    if (pid == 0)
-    {
-      char** argv = static_cast<char**>(malloc(sizeof(char*) * opts.exec.size() + 1));
-      for(size_t i = 0; i < opts.exec.size(); ++i)
-      {
-        argv[i] = strdup(opts.exec[i].c_str());
-      }
-      argv[opts.exec.size()] = NULL;
-
-      if (execvp(opts.exec[0].c_str(), argv) == -1)
-      {
-        std::cout << "error: " << opts.exec[0] << ": " << strerror(errno) << std::endl;
-        // FIXME: must signal the parent process
-        exit(EXIT_FAILURE);
-      }
-    }
-  }
-
-  uint32_t last_time = get_time();
-  while(!global_exit_xboxdrv)
-  {
-    XboxGenericMsg msg;
-
-    if (controller->read(msg, opts.verbose, timeout))
-    {
-      oldrealmsg = msg;
-    }
-    else
-    {
-      // no new data read, so copy the last read data
-      msg = oldrealmsg;
-    }
-
-    // Calc changes in time
-    uint32_t this_time = get_time();
-    int msec_delta = this_time - last_time;
-    last_time = this_time;
-
-    // run the controller message through all modifier
-    for(std::vector<ModifierPtr>::iterator i = modifier.begin(); i != modifier.end(); ++i)
-    {
-      (*i)->update(msec_delta, msg);
-    }
-
-    if (memcmp(&msg, &oldmsg, sizeof(XboxGenericMsg)) != 0)
-    { // Only send a new event out if something has changed,
-      // this is useful since some controllers send events
-      // even if nothing has changed, deadzone can cause this
-      // too
-      oldmsg = msg;
-
-      if (!opts.silent)
-        std::cout << msg << std::endl;
-
-      if (uinput) 
-        uinput->send(msg);
-                 
-      if (opts.rumble)
-      {
-        if (type == GAMEPAD_XBOX)
-        {
-          set_rumble(controller, opts.rumble_gain, msg.xbox.lt, msg.xbox.rt);
-        }
-        else if (type == GAMEPAD_XBOX360 ||
-                 type == GAMEPAD_XBOX360_WIRELESS)
-        {
-          set_rumble(controller, opts.rumble_gain, msg.xbox360.lt, msg.xbox360.rt);
-        }
-        else if (type == GAMEPAD_FIRESTORM ||
-                 type == GAMEPAD_FIRESTORM_VSB)
-        {
-          set_rumble(controller, opts.rumble_gain,
-                     std::min(255, abs((msg.xbox360.y1>>8)*2)), 
-                     std::min(255, abs((msg.xbox360.y2>>8)*2)));
-        }
-      }
-    }
-
-    if (uinput)
-    {
-      uinput->update(msec_delta);
-    }
-
-    if (pid != -1)
-    {
-      int status = 0;
-      int w = waitpid(pid, &status, WNOHANG);
-
-      if (w > 0)
-      {
-        if (WIFEXITED(status))
-        {
-          if (WEXITSTATUS(status) != 0)
-          {
-            std::cout << "error: child program has stopped with exit status " << WEXITSTATUS(status) << std::endl;
-          }
-          else
-          {
-            std::cout << "child program exited successful" << std::endl;
-          }
-          global_exit_xboxdrv = true;
-        }
-        else if (WIFSIGNALED(status))
-        {
-          std::cout << "error: child program was terminated by " << WTERMSIG(status) << std::endl;
-          global_exit_xboxdrv = true;
-        }
-      }
-    }
-  }
-}
-
-void
-Xboxdrv::find_controller(struct usb_device*& dev,
-                         XPadDevice&         dev_type,
+Xboxdrv::find_controller(libusb_device** dev,
+                         XPadDevice& dev_type,
                          const Options& opts) const
 {
   if (opts.busid[0] != '\0' && opts.devid[0] != '\0')
   {
     if (opts.gamepad_type == GAMEPAD_UNKNOWN)
     {
-      std::cout << "Error: --device-by-path BUS:DEV option must be used in combination with --type TYPE option" << std::endl;
-      exit(EXIT_FAILURE);
+      throw std::runtime_error("--device-by-path BUS:DEV option must be used in combination with --type TYPE option");
     }
     else
     {
-      if (!find_controller_by_path(opts.busid, opts.devid, &dev))
+      if (!find_controller_by_path(opts.busid, opts.devid, dev))
       {
-        std::cout << "Error: couldn't find device " << opts.busid << ":" << opts.devid << std::endl;
-        exit(EXIT_FAILURE);
+        std::ostringstream out;
+        out << "couldn't find device " << opts.busid << ":" << opts.devid;
+        throw std::runtime_error(out.str());
       }
       else
       {
         dev_type.type      = opts.gamepad_type;
-        dev_type.idVendor  = dev->descriptor.idVendor;
-        dev_type.idProduct = dev->descriptor.idProduct;
         dev_type.name      = "unknown";
+        libusb_device_descriptor desc;
+        if (libusb_get_device_descriptor(*dev, &desc) == LIBUSB_SUCCESS)
+        {
+          dev_type.idVendor  = desc.idVendor;
+          dev_type.idProduct = desc.idProduct;
+        }
       }
     }
   }
@@ -483,17 +318,16 @@ Xboxdrv::find_controller(struct usb_device*& dev,
   {
     if (opts.gamepad_type == GAMEPAD_UNKNOWN)
     {
-      std::cout << "Error: --device-by-id VENDOR:PRODUCT option must be used in combination with --type TYPE option" << std::endl;
-      exit(EXIT_FAILURE);
+      throw std::runtime_error("--device-by-id VENDOR:PRODUCT option must be used in combination with --type TYPE option");
     }
     else 
     {
-      if (!find_controller_by_id(opts.controller_id, opts.vendor_id, opts.product_id, &dev))
+      if (!find_controller_by_id(opts.controller_id, opts.vendor_id, opts.product_id, dev))
       {
-        std::cout << "Error: couldn't find device with " 
-                  << (boost::format("%04x:%04x") % opts.vendor_id % opts.product_id) 
-                  << std::endl;
-        exit(EXIT_FAILURE);
+        std::ostringstream out;
+        out << "Error: couldn't find device with " 
+            << (boost::format("%04x:%04x") % opts.vendor_id % opts.product_id);
+        throw std::runtime_error(out.str());
       }
       else
       {
@@ -506,31 +340,37 @@ Xboxdrv::find_controller(struct usb_device*& dev,
   }
   else
   {
-    if (!find_xbox360_controller(opts.controller_id, &dev, &dev_type))
+    if (!find_xbox360_controller(opts.controller_id, dev, &dev_type))
     {
-      std::cout << "No Xbox or Xbox360 controller found" << std::endl;
-      exit(EXIT_FAILURE);
+      throw std::runtime_error("No Xbox or Xbox360 controller found");
     }
   }
 }
 
 void
+Xboxdrv::print_copyright() const
+{
+  WordWrap wrap(get_terminal_width());
+  wrap.para("xboxdrv " PACKAGE_VERSION " - http://pingus.seul.org/~grumbel/xboxdrv/");
+  wrap.para("Copyright © 2008-2011 Ingo Ruhnke <grumbel@gmx.de>");
+  wrap.para("Licensed under GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>");
+  wrap.para("This program comes with ABSOLUTELY NO WARRANTY.");
+  wrap.para("This is free software, and you are welcome to redistribute it under certain "
+               "conditions; see the file COPYING for details.");
+  wrap.newline();
+}
+
+void
 Xboxdrv::run_main(const Options& opts)
 {
   if (!opts.quiet)
   {
-    std::cout
-      << "xboxdrv " PACKAGE_VERSION " - http://pingus.seul.org/~grumbel/xboxdrv/\n"
-      << "Copyright © 2008-2010 Ingo Ruhnke <grumbel@gmx.de>\n"
-      << "Licensed under GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n"
-      << "This program comes with ABSOLUTELY NO WARRANTY.\n"
-      << "This is free software, and you are welcome to redistribute it under certain conditions; see the file COPYING for details.\n";
-    std::cout << std::endl;
+    print_copyright();
   }
 
   std::auto_ptr<XboxGenericController> controller;
 
-  XPadDevice         dev_type;
+  XPadDevice dev_type;
 
   if (!opts.evdev_device.empty())
   { // normal PC joystick via evdev
@@ -548,13 +388,16 @@ Xboxdrv::run_main(const Options& opts)
   }
   else
   { // regular USB Xbox360 controller    
-    usb_init();
-    usb_find_busses();
-    usb_find_devices();
+    int ret = libusb_init(NULL);
+    if (ret != LIBUSB_SUCCESS)
+    {
+      raise_exception(std::runtime_error, "libusb_init() failed: " << usb_strerror(ret));
+    }
     
-    struct usb_device* dev      = 0;
+    // FIXME: this must be libusb_unref_device()'ed, child code must not keep a copy around
+    libusb_device* dev = 0;
   
-    find_controller(dev, dev_type, opts);
+    find_controller(&dev, dev_type, opts);
 
     if (!dev)
     {
@@ -565,50 +408,7 @@ Xboxdrv::run_main(const Options& opts)
       if (!opts.quiet)
         print_info(dev, dev_type, opts);
 
-      switch (dev_type.type)
-      {
-        case GAMEPAD_XBOX360_PLAY_N_CHARGE: 
-          throw std::runtime_error("The Xbox360 Play&Charge cable is for recharging only, it does not transmit data, "
-                                   "thus xboxdrv can't support it. You have to get a wireless receiver:\n"
-                                   "\n"
-                                   "  * http://www.xbox.com/en-ca/hardware/x/xbox360wirelessgamingreceiver/");
-          break;
-
-        case GAMEPAD_XBOX:
-        case GAMEPAD_XBOX_MAT:
-          controller = std::auto_ptr<XboxGenericController>(new XboxController(dev, opts.detach_kernel_driver));
-          break;
-
-        case GAMEPAD_XBOX360:
-        case GAMEPAD_XBOX360_GUITAR:
-          controller = std::auto_ptr<XboxGenericController>(new Xbox360Controller(dev, 
-                                                                                  opts.chatpad, opts.chatpad_no_init, opts.chatpad_debug,
-                                                                                  opts.headset, 
-                                                                                  opts.headset_debug, 
-                                                                                  opts.headset_dump,
-                                                                                  opts.headset_play,
-                                                                                  opts.detach_kernel_driver));
-          break;
-
-        case GAMEPAD_XBOX360_WIRELESS:
-          controller = std::auto_ptr<XboxGenericController>(new Xbox360WirelessController(dev, opts.wireless_id, opts.detach_kernel_driver));
-          break;
-
-        case GAMEPAD_FIRESTORM:
-          controller = std::auto_ptr<XboxGenericController>(new FirestormDualController(dev, false, opts.detach_kernel_driver));
-          break;
-
-        case GAMEPAD_FIRESTORM_VSB:
-          controller = std::auto_ptr<XboxGenericController>(new FirestormDualController(dev, true, opts.detach_kernel_driver));
-          break;
-
-        case GAMEPAD_SAITEK_P2500:
-          controller = std::auto_ptr<XboxGenericController>(new SaitekP2500Controller(dev, opts.detach_kernel_driver));
-          break;
-
-        default:
-          assert(!"Unknown gamepad type");
-      }
+      controller = XboxControllerFactory::create(dev_type, dev, opts);
     }
   }
 
@@ -636,16 +436,12 @@ Xboxdrv::run_main(const Options& opts)
   }
   else
   {          
-    std::auto_ptr<uInput> uinput;
+    std::auto_ptr<UInput> uinput;
     if (!opts.no_uinput)
     {
       if (!opts.quiet)
         std::cout << "Starting with uinput" << std::endl;
-      uinput = std::auto_ptr<uInput>(new uInput(dev_type.type, dev_type.idVendor, dev_type.idProduct, opts.uinput_config));
-      if (opts.uinput_config.force_feedback)
-      {
-        uinput->set_ff_callback(boost::bind(&set_rumble,  controller.get(), opts.rumble_gain, _1, _2));
-      }
+      uinput = std::auto_ptr<UInput>(new UInput());
     }
     else
     {
@@ -670,7 +466,27 @@ Xboxdrv::run_main(const Options& opts)
     }
 
     global_exit_xboxdrv = false;
-    controller_loop(dev_type.type, uinput.get(), controller.get(), opts);
+
+    std::auto_ptr<MessageProcessor> message_proc;
+    if (uinput.get())
+    {
+      ControllerSlotConfigPtr config_set = ControllerSlotConfig::create(*uinput, 
+                                                                        0, opts.extra_devices,
+                                                                        opts.get_controller_slot());
+
+      // After all the ControllerConfig registered their events, finish up
+      // the device creation
+      uinput->finish();
+
+      message_proc.reset(new UInputMessageProcessor(*uinput, config_set, opts));
+    }
+    else
+    {
+      message_proc.reset(new DummyMessageProcessor);
+    }
+
+    XboxdrvThread loop(message_proc, controller, opts);
+    loop.controller_loop(opts);
           
     if (!opts.quiet) 
       std::cout << "Shutdown complete" << std::endl;
@@ -678,90 +494,30 @@ Xboxdrv::run_main(const Options& opts)
 }
 
 void
-Xboxdrv::print_info(struct usb_device* dev,
+Xboxdrv::print_info(libusb_device* dev,
                     const XPadDevice& dev_type,
                     const Options& opts) const
 {
-  std::cout << "USB Device:        " << dev->bus->dirname << ":" << dev->filename << std::endl;
-  std::cout << "Controller:        " << boost::format("\"%s\" (idVendor: 0x%04x, idProduct: 0x%04x)")
-    % dev_type.name % uint16_t(dev->descriptor.idVendor) % uint16_t(dev->descriptor.idProduct) << std::endl;
+  libusb_device_descriptor desc;
+  int ret = libusb_get_device_descriptor(dev, &desc);
+  if (ret != LIBUSB_SUCCESS)
+  {
+    raise_exception(std::runtime_error, "libusb_get_device_descriptor() failed: " << usb_strerror(ret));
+  }
+
+  std::cout << "USB Device:        " << boost::format("%03d:%03d")
+    % static_cast<int>(libusb_get_bus_number(dev))
+    % static_cast<int>(libusb_get_device_address(dev)) << std::endl;
+  std::cout << "Controller:        " << dev_type.name << std::endl;
+  std::cout << "Vendor/Product:    " << boost::format("%04x:%04x")
+    % uint16_t(desc.idVendor) % uint16_t(desc.idProduct) << std::endl;
   if (dev_type.type == GAMEPAD_XBOX360_WIRELESS)
     std::cout << "Wireless Port:     " << opts.wireless_id << std::endl;
+  else
+    std::cout << "Wireless Port:     -" << std::endl;
   std::cout << "Controller Type:   " << dev_type.type << std::endl;
-  std::cout << "Deadzone:          " << opts.deadzone << std::endl;
-  std::cout << "Trigger Deadzone:  " << opts.deadzone_trigger << std::endl;
-  std::cout << "Rumble Debug:      " << (opts.rumble ? "on" : "off") << std::endl;
-  std::cout << "Rumble Speed:      " << "left: " << opts.rumble_l << " right: " << opts.rumble_r << std::endl;
-  if (opts.led == -1)
-    std::cout << "LED Status:        " << "auto" << std::endl;
-  else
-    std::cout << "LED Status:        " << opts.led << std::endl;
 
-  std::cout << "Square Axis:       " << ((opts.square_axis) ? "yes" : "no") << std::endl;
-  std::cout << "4-Way Restrictor:  " << ((opts.four_way_restrictor) ? "yes" : "no") << std::endl;
-  std::cout << "Dpad Rotation:     " << opts.dpad_rotation * 45 << " degree" << std::endl;
-  
-  std::cout << "ButtonMap:         ";
-  if (opts.button_map.empty())
-  {
-    std::cout << "none" << std::endl;
-  }
-  else
-  {
-    for(std::vector<ButtonMapping>::const_iterator i = opts.button_map.begin(); i != opts.button_map.end(); ++i)
-    {
-      std::cout << btn2string(i->lhs) << "->" << btn2string(i->rhs) << " ";
-    }
-    std::cout << std::endl;
-  }
-
-  std::cout << "AxisMap:           ";
-  if (opts.axis_map.empty())
-  {
-    std::cout << "none" << std::endl;
-  }
-  else
-  {
-    for(std::vector<AxisMapping>::const_iterator i = opts.axis_map.begin(); i != opts.axis_map.end(); ++i)
-    {
-      if (i->invert)
-        std::cout << "-" << axis2string(i->lhs) << "->" << axis2string(i->rhs) << " ";
-      else
-        std::cout << axis2string(i->lhs) << "->" << axis2string(i->rhs) << " ";
-    }
-    std::cout << std::endl;
-  }
-
-  std::cout << "RelativeAxisMap:   ";
-  if (opts.relative_axis_map.empty())
-  {
-    std::cout << "none" << std::endl;
-  }
-  else
-  {
-    for(std::vector<RelativeAxisMapping>::const_iterator i = opts.relative_axis_map.begin(); i != opts.relative_axis_map.end(); ++i)
-    {
-      std::cout << axis2string(i->axis) << "=" << i->speed << " ";
-    }
-    std::cout << std::endl;
-  }
-
-  std::cout << "AutoFireMap:       ";
-  if (opts.autofire_map.empty())
-  {
-    std::cout << "none" << std::endl;
-  }
-  else
-  {
-    for(std::vector<AutoFireMapping>::const_iterator i = opts.autofire_map.begin(); i != opts.autofire_map.end(); ++i)
-    {
-      std::cout << btn2string(i->button) << "=" << i->frequency << " ";
-    }
-    std::cout << std::endl;
-  }
-
-  std::cout << "RumbleGain:        " << opts.rumble_gain << std::endl;
-  std::cout << "ForceFeedback:     " << ((opts.uinput_config.force_feedback) ? "enabled" : "disabled") << std::endl;
+  //std::cout << "ForceFeedback:     " << ((opts.controller.back().uinput.force_feedback) ? "enabled" : "disabled") << std::endl;
 }
 
 void
@@ -829,21 +585,140 @@ Xboxdrv::run_help_devices()
 void
 Xboxdrv::run_daemon(const Options& opts)
 {
-  pid_t pid = fork();
-
-  if (pid < 0) exit(EXIT_FAILURE); /* fork error */
-  if (pid > 0) exit(EXIT_SUCCESS); /* parent exits */
-
-  pid_t sid = setsid();
-  std::cout << "Sid: " << sid << std::endl;
-  if (chdir("/") != 0)
+  if (!opts.quiet)
   {
-    throw std::runtime_error(strerror(errno));
+    print_copyright();
   }
 
-  run_main(opts);
+  int ret = libusb_init(NULL);
+  if (ret != LIBUSB_SUCCESS)
+  {
+    raise_exception(std::runtime_error, "libusb_init() failed: " << usb_strerror(ret));
+  }
+
+  if (!opts.detach)
+  {
+    XboxdrvDaemon daemon;
+    daemon.run(opts);
+  }
+  else
+  {
+    pid_t pid = fork();
+
+    if (pid < 0) 
+    { // fork error
+      std::ostringstream out;
+      out << "Xboxdrv::run_daemon(): failed to fork(): " << strerror(errno);
+      throw std::runtime_error(out.str());
+    }
+    else if (pid > 0) 
+    { // parent, just exit
+      _exit(EXIT_SUCCESS);
+    }
+    else
+    { // child, run daemon
+      pid_t sid = setsid();
+
+      if (sid == static_cast<pid_t>(-1))
+      {
+        std::ostringstream out;
+        out << "Xboxdrv::run_daemon(): failed to setsid(): " << strerror(errno);
+        throw std::runtime_error(out.str());
+      }
+      else
+      {
+        if (chdir("/") != 0)
+        {
+          std::ostringstream out;
+          out << "Xboxdrv::run_daemon(): failed to chdir(\"/\"): " << strerror(errno);
+          throw std::runtime_error(out.str());
+        }
+        else
+        {
+          XboxdrvDaemon daemon;
+          daemon.run(opts);
+        }
+      }
+    }
+  }
+
+  libusb_exit(NULL);
+}
+
+void
+Xboxdrv::run_list_enums(uint32_t enums)
+{
+  const int terminal_width = get_terminal_width();
+
+  WordWrap wrap(terminal_width);
+
+  if (enums & Options::LIST_ABS)
+  {
+    wrap.println("EV_ABS:");
+    wrap.para("  ", boost::algorithm::join(evdev_abs_names.get_names(), ", "));
+    wrap.newline();
+  }
+  
+  if (enums & Options::LIST_REL)
+  {
+    wrap.println("EV_REL:");
+    wrap.para("  ", boost::algorithm::join(evdev_rel_names.get_names(), ", "));
+    wrap.newline();
+  }
+  
+  if (enums & Options::LIST_KEY)
+  {
+    wrap.println("EV_KEY:");
+    wrap.para("  ", boost::algorithm::join(evdev_key_names.get_names(), ", "));
+    wrap.newline();
+  }
+  
+  if (enums & Options::LIST_X11KEYSYM)
+  {
+    std::vector<std::string> lst;  
+    for(X11KeysymEnum::const_iterator i = get_x11keysym_names().begin();
+        i != get_x11keysym_names().end(); ++i)
+    {
+      lst.push_back(i->second);
+    }
+    wrap.println("X11Keysym:");
+    wrap.para("  ", boost::algorithm::join(lst, ", "));
+    wrap.newline();
+  }
+  
+  if (enums & Options::LIST_AXIS)
+  {
+    std::vector<std::string> lst;
+    for(int i = 1; i < XBOX_AXIS_MAX; ++i)
+    {
+      lst.push_back(axis2string(static_cast<XboxAxis>(i)));
+    }
+    wrap.println("XboxAxis:");
+    wrap.para("  ", boost::algorithm::join(lst, ", "));
+    wrap.newline();
+  }
+  
+  if (enums & Options::LIST_BUTTON)
+  {
+    std::vector<std::string> lst;
+    for(int i = 1; i < XBOX_BTN_MAX; ++i)
+    {
+      lst.push_back(btn2string(static_cast<XboxButton>(i)));
+    }
+    wrap.println("XboxButton:");
+    wrap.para("  ", boost::algorithm::join(lst, ", "));
+    wrap.newline();
+  }
 }
 
+Xboxdrv::Xboxdrv()
+{
+}
+
+Xboxdrv::~Xboxdrv()
+{
+}
+
 int
 Xboxdrv::main(int argc, char** argv)
 {
@@ -886,6 +761,10 @@ Xboxdrv::main(int argc, char** argv)
 
       case Options::RUN_DEFAULT:
         run_main(opts);
+        break;
+
+      case Options::PRINT_ENUMS:
+        run_list_enums(opts.list_enums);
         break;
 
       case Options::RUN_DAEMON:

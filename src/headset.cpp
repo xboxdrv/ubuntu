@@ -18,25 +18,28 @@
 
 #include "headset.hpp"
 
-#include <boost/format.hpp>
 #include <fstream>
-#include <iostream>
-#include <string.h>
 
-Headset::Headset(struct usb_dev_handle* handle, 
+#include "helper.hpp"
+#include "raise_exception.hpp"
+#include "usb_helper.hpp"
+
+Headset::Headset(libusb_device_handle* handle, 
                  bool debug,
                  const std::string& dump_filename,
                  const std::string& play_filename) :
   m_handle(handle),
+  m_read_thread(),
+  m_write_thread(),
   m_quit_read_thread(false),
   m_quit_write_thread(false)
 {
-  int ret = usb_claim_interface(m_handle, 1);
+  int ret = libusb_claim_interface(m_handle, 1);
 
-  if (ret < 0)
+  if (ret != LIBUSB_SUCCESS)
   {
     std::ostringstream out;
-    out << "[headset] " << usb_strerror();
+    out << "[headset] " << usb_strerror(ret);
     throw std::runtime_error(out.str());
   }
 
@@ -59,12 +62,12 @@ Headset::~Headset()
   m_read_thread.release();
   m_write_thread.release();
 
-  int err = usb_release_interface(m_handle, 1);
+  int ret = libusb_release_interface(m_handle, 1);
 
-  if (err < 0)
+  if (ret != LIBUSB_SUCCESS)
   {
     std::ostringstream out;
-    out << "[headset] " << usb_strerror();
+    out << "[headset] " << usb_strerror(ret);
     throw std::runtime_error(out.str());
   }
 }
@@ -81,12 +84,12 @@ Headset::write_thread(const std::string& filename)
     throw std::runtime_error(out.str());    
   }
 
-  std::cout << "[headset] starting playback: " << filename << std::endl;
+  log_info("starting playback: " << filename);
 
-  char data[32];
+  uint8_t data[32];
   while(in)
   {
-    int len = in.read(data, sizeof(data)).gcount();
+    int len = in.read(reinterpret_cast<char*>(data), sizeof(data)).gcount();
 
     if (len != 32)
     {
@@ -94,17 +97,18 @@ Headset::write_thread(const std::string& filename)
     }
     else
     {
-      const int ret = usb_interrupt_write(m_handle, 4, reinterpret_cast<char*>(data), sizeof(data), 0);
-      if (ret < 0)
+      int transferred = 0;
+      const int ret = libusb_interrupt_transfer(m_handle, LIBUSB_ENDPOINT_OUT | 4,
+                                                data, sizeof(data),
+                                                &transferred, 0);
+      if (ret != LIBUSB_SUCCESS)
       {
-        std::ostringstream out;
-        out << "[headset] " << usb_strerror();
-        throw std::runtime_error(out.str());
+        raise_exception(std::runtime_error, "libusb_interrupt_transfer failed: " << usb_strerror(ret));
       }
     }
   }
 
-  std::cout << "[headset] finished playback: " << filename << std::endl;
+  log_info("finished playback: " << filename);
 }
 
 void
@@ -118,27 +122,28 @@ Headset::read_thread(const std::string& filename, bool debug)
   
     if (!*out)
     {
-      std::ostringstream outstr;
-      outstr << "[headset] " << filename << ": " << strerror(errno);
-      throw std::runtime_error(outstr.str());
+      raise_exception(std::runtime_error, filename << ": " << strerror(errno));
     }
   }
 
   while(!m_quit_read_thread)
   {
     uint8_t data[32];
-    const int ret = usb_interrupt_read(m_handle, 3, reinterpret_cast<char*>(data), sizeof(data), 0);
-    if (ret < 0)
+    int len = 0;
+    const int ret = libusb_interrupt_transfer(m_handle, LIBUSB_ENDPOINT_IN | 3, 
+                                              reinterpret_cast<uint8_t*>(data), sizeof(data), 
+                                              &len, 0);
+    if (ret != LIBUSB_SUCCESS)
     {
       std::ostringstream outstr;
-      outstr << "[headset] " << usb_strerror();
+      outstr << "[headset] " << usb_strerror(ret);
       throw std::runtime_error(outstr.str());
     }
     else
     {
-      if (ret == 0)
+      if (len == 0)
       {
-        std::cout << "[headset] -- empty read --" << std::endl;
+        log_debug("-- empty read --");
       }
       else
       {
@@ -147,15 +152,7 @@ Headset::read_thread(const std::string& filename, bool debug)
           out->write(reinterpret_cast<char*>(data), sizeof(data));
         }
 
-        if (debug)
-        {
-          std::cout << "[headset] ";
-          for(int i = 0; i < ret; ++i)
-          {
-            std::cout << boost::format("0x%02x ") % int(data[i]);
-          }
-          std::cout << std::endl;
-        }
+        log_debug(raw2str(data, len));
       }
     }
   }

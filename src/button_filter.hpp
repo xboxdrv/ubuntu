@@ -25,7 +25,7 @@
 class ButtonFilter;
 
 typedef boost::shared_ptr<ButtonFilter> ButtonFilterPtr;
-
+
 class ButtonFilter
 {
 public:
@@ -37,65 +37,9 @@ public:
 
   virtual bool filter(bool value) =0;
   virtual void update(int msec_delta) {}
+  virtual std::string str() const = 0;
 };
-
-class ToggleButtonFilter : public ButtonFilter
-{
-public:
-  ToggleButtonFilter();
 
-  bool filter(bool value);
-  void update(int msec_delta) {}
-
-private:
-  bool m_state;
-  bool m_last_value;
-};
-
-class InvertButtonFilter : public ButtonFilter
-{
-public:
-  InvertButtonFilter() {}
-
-  void update(int msec_delta) {}
-  bool filter(bool value);
-};
-
-class AutofireButtonFilter : public ButtonFilter
-{
-public:
-  static AutofireButtonFilter* from_string(const std::string& str);
-
-public:
-  AutofireButtonFilter(int rate, int delay);
-
-  void update(int msec_delta);
-  bool filter(bool value);
-
-private:
-  bool m_state;
-  bool m_autofire;
-
-  /** msec between shots */
-  int m_rate;
-  int m_delay;
-  int m_counter;
-};
-
-class LogButtonFilter : public ButtonFilter
-{
-public:
-  static LogButtonFilter* from_string(const std::string& str);
-
-public:
-  LogButtonFilter(const std::string& name);
-
-  bool filter(bool value);
-
-private:
-  std::string m_name;
-};
-
 #endif
 
 /* EOF */

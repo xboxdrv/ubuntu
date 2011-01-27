@@ -18,22 +18,21 @@
 
 #include "command_line_options.hpp"
 
-#include <stdio.h>
-#include <iostream>
 #include <fstream>
-#include <stdexcept>
+#include <iostream>
 #include <boost/bind.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/tokenizer.hpp>
-#include <boost/format.hpp>
 
-#include "arg_parser.hpp"
-#include "button_filter.hpp"
+#include "evdev_helper.hpp"
 #include "helper.hpp"
 #include "ini_parser.hpp"
 #include "ini_schema_builder.hpp"
 #include "options.hpp"
-#include "uinput_deviceid.hpp"
+
+#include "axisfilter/relative_axis_filter.hpp"
+#include "axisfilter/calibration_axis_filter.hpp"
+#include "axisfilter/sensitivity_axis_filter.hpp"
+#include "buttonfilter/autofire_button_filter.hpp"
 
 #define RAISE_EXCEPTION(x) do {                         \
     std::ostringstream kiJk8f08d4oMX;                   \
@@ -47,6 +46,7 @@ enum {
   OPTION_HELP,
   OPTION_VERBOSE,
   OPTION_VERSION,
+  OPTION_DEBUG,
   OPTION_QUIET,
   OPTION_SILENT,
   OPTION_DAEMON,
@@ -63,12 +63,16 @@ enum {
   OPTION_TYPE,
   OPTION_FORCE_FEEDBACK,
   OPTION_RUMBLE_GAIN,
+  OPTION_MODIFIER,
   OPTION_BUTTONMAP,
   OPTION_AXISMAP,
   OPTION_NAME,
-  OPTION_UI_NEW,
+  OPTION_NEXT_CONFIG,
+  OPTION_NEXT_CONTROLLER,
+  OPTION_CONFIG_SLOT,
+  OPTION_CONTROLLER_SLOT,
   OPTION_UI_CLEAR,
-  OPTION_UI_TOGGLE,
+  OPTION_TOGGLE,
   OPTION_UI_AXISMAP,
   OPTION_UI_BUTTONMAP,
   OPTION_ID,
@@ -103,16 +107,31 @@ enum {
   OPTION_CHATPAD,
   OPTION_CHATPAD_NO_INIT,
   OPTION_CHATPAD_DEBUG,
+  OPTION_TIMEOUT,
   OPTION_HEADSET,
   OPTION_HEADSET_DUMP,
   OPTION_HEADSET_PLAY,
   OPTION_DETACH_KERNEL_DRIVER,
-  OPTION_HELP_DEVICES
+  OPTION_DAEMON_DETACH,
+  OPTION_DAEMON_PID_FILE,
+  OPTION_DAEMON_MATCH,
+  OPTION_DAEMON_MATCH_GROUP,
+  OPTION_HELP_DEVICES,
+  OPTION_LIST_ALL,
+  OPTION_LIST_ABS,
+  OPTION_LIST_REL,
+  OPTION_LIST_KEY,
+  OPTION_LIST_X11KEYSYM,
+  OPTION_LIST_AXIS,
+  OPTION_LIST_BUTTON,
+  OPTION_DAEMON_ON_CONNECT,
+  OPTION_DAEMON_ON_DISCONNECT
 };
 
 CommandLineParser::CommandLineParser() :
   m_argp(),
-  m_ini()
+  m_ini(),
+  m_options()
 {
   init_argp();
 }
@@ -129,27 +148,48 @@ CommandLineParser::init_argp()
     .add_option(OPTION_HELP,         'h', "help",         "", "display this help and exit")
     .add_option(OPTION_VERSION,      'V', "version",      "", "print the version number and exit")
     .add_option(OPTION_VERBOSE,      'v', "verbose",      "", "print verbose messages")
-    .add_option(OPTION_HELP_LED,      0,  "help-led",     "", "list possible values for the led")
-    .add_option(OPTION_HELP_DEVICES,  0,  "help-devices", "", "list supported devices")
+    .add_option(OPTION_DEBUG,         0,  "debug",   "",  "be even more verbose then --verbose")
     .add_option(OPTION_SILENT,       's', "silent",  "",  "do not display events on console")
     .add_option(OPTION_QUIET,         0,  "quiet",   "",  "do not display startup text")
-    .add_option(OPTION_LIST_CONTROLLER, 'L', "list-controller", "", "list available controllers")
-    .add_option(OPTION_LIST_SUPPORTED_DEVICES, 0, "list-supported-devices", "", "list supported devices (used by xboxdrv-daemon.py)")
-    .add_option(OPTION_LIST_SUPPORTED_DEVICES_XPAD, 0, "list-supported-devices-xpad", "", "list supported devices in xpad.c style")
-    .add_option(OPTION_DAEMON,       'D', "daemon",      "", "run as daemon")
+    .add_newline()
+
+    .add_text("List Options: ")
+    .add_option(OPTION_LIST_SUPPORTED_DEVICES, 0, "list-supported-devices", "", "list supported devices (used by xboxdrv-daemon.py)", false)
+    .add_option(OPTION_LIST_SUPPORTED_DEVICES_XPAD, 0, "list-supported-devices-xpad", "", "list supported devices in xpad.c style", false)
+    .add_option(OPTION_HELP_LED,      0,  "help-led",     "", "list possible values for the led")
+    .add_option(OPTION_HELP_DEVICES,  0,  "help-devices", "", "list supported devices")
+    .add_option(OPTION_LIST_ABS,       0, "help-abs",       "", "list all possible EV_ABS names")
+    .add_option(OPTION_LIST_REL,       0, "help-rel",       "", "list all possible EV_REL names")
+    .add_option(OPTION_LIST_KEY,       0, "help-key",       "", "list all possible EV_KEY names")
+    .add_option(OPTION_LIST_X11KEYSYM, 0, "help-x11keysym", "", "list all possible X11KeySym")
+    .add_option(OPTION_LIST_AXIS,      0, "help-axis",      "", "list all possible XboxAxis")
+    .add_option(OPTION_LIST_BUTTON,    0, "help-button",    "", "list all possible XboxButton")
+    .add_option(OPTION_LIST_ALL,       0, "help-all",       "", "list all symbols above")
+    .add_newline()
+
+    .add_text("Config File Options: ")
     .add_option(OPTION_CONFIG,       'c', "config",      "FILE", "read configuration from FILE")
     .add_option(OPTION_ALT_CONFIG,    0, "alt-config",   "FILE", "read alternative configuration from FILE ")
     .add_option(OPTION_CONFIG_OPTION,'o', "option",      "NAME=VALUE", "Set the given configuration option") 
-    .add_option(OPTION_WRITE_CONFIG,  0, "write-config", "FILE", "rite an example configuration to FILE")
+    .add_option(OPTION_WRITE_CONFIG,  0, "write-config", "FILE", "write an example configuration to FILE")
+    .add_newline()
+
+    .add_text("Daemon Options: ")
+    .add_option(OPTION_DAEMON,        'D', "daemon",    "", "Run as daemon")
+    .add_option(OPTION_DAEMON_DETACH,   0, "detach",      "", "Detach the daemon from the current shell")
+    .add_option(OPTION_DAEMON_PID_FILE, 0, "pid-file",    "FILE", "Write daemon pid to FILE")
+    .add_option(OPTION_DAEMON_ON_CONNECT,    0, "on-connect", "FILE", "Launch EXE when a new controller is connected", false)
+    .add_option(OPTION_DAEMON_ON_DISCONNECT, 0, "on-disconnect", "FILE", "Launch EXE when a controller is disconnected", false)
     .add_newline()
 
     .add_text("Device Options: ")
-    .add_option(OPTION_DETACH_KERNEL_DRIVER, 'd', "detach-kernel-driver", "", "Detaches the kernel driver currently associated with the device")
+    .add_option(OPTION_LIST_CONTROLLER, 'L', "list-controller", "", "list available controllers")
     .add_option(OPTION_ID,           'i', "id",      "N", "use controller with id N (default: 0)")
     .add_option(OPTION_WID,          'w', "wid",     "N", "use wireless controller with wid N (default: 0)")
     .add_option(OPTION_DEVICE_BY_PATH, 0, "device-by-path", "BUS:DEV", "Use device BUS:DEV, do not do any scanning")
     .add_option(OPTION_DEVICE_BY_ID,   0, "device-by-id",   "VENDOR:PRODUCT", "Use device that matches VENDOR:PRODUCT (as returned by lsusb)")
     .add_option(OPTION_TYPE,           0, "type",    "TYPE", "Ignore autodetection and enforce controller type (xbox, xbox-mat, xbox360, xbox360-wireless, xbox360-guitar)")
+    .add_option(OPTION_DETACH_KERNEL_DRIVER, 'd', "detach-kernel-driver", "", "Detaches the kernel driver currently associated with the device")
     .add_newline()
 
     .add_text("Evdev Options: ")
@@ -161,7 +201,8 @@ CommandLineParser::init_argp()
     .add_newline()
 
     .add_text("Status Options: ")
-    .add_option(OPTION_LED,     'l', "led",    "NUM", "set LED status, see --help-led (default: 0)")
+    .add_option(OPTION_LED,     'l', "led",    "STATUS", "set LED status, see --help-led for possible values")
+    .add_option(OPTION_RUMBLE,  'r', "rumble", "L,R", "set the speed for both rumble motors [0-255] (default: 0,0)")
     .add_option(OPTION_QUIT,    'q', "quit",   "",    "only set led and rumble status then quit")
     .add_newline()
 
@@ -181,21 +222,40 @@ CommandLineParser::init_argp()
     .add_option(OPTION_FORCE_FEEDBACK,     0, "force-feedback",   "",     "Enable force feedback support")
     .add_option(OPTION_RUMBLE_GAIN,        0, "rumble-gain",      "NUM",  "Set relative rumble strength (default: 255)")
     .add_option(OPTION_TEST_RUMBLE,      'R', "test-rumble", "", "map rumbling to LT and RT (for testing only)")
-    .add_option(OPTION_RUMBLE,           'r', "rumble", "L,R", "set the speed for both rumble motors [0-255] (default: 0,0)")
     .add_newline()
 
-    .add_text("Configuration Options: ")
-    .add_option(OPTION_DEADZONE,           0, "deadzone",         "INT",  "Threshold under which axis events are ignored (default: 0)")
-    .add_option(OPTION_DEADZONE_TRIGGER,   0, "deadzone-trigger", "INT",  "Threshold under which trigger events are ignored (default: 0)")
+    .add_text("Controller Slot Options: ")
+    .add_option(OPTION_CONTROLLER_SLOT,    0, "controller-slot", "N", "Use controller slot N")
+    .add_option(OPTION_NEXT_CONTROLLER,    0, "next-controller", "", "Create a new controller entry")
+    .add_option(OPTION_DAEMON_MATCH,       0, "match", "RULES",   "Only allow controllers that match any of RULES")
+    //FIXME: .add_option(OPTION_DAEMON_MATCH_GROUP, 0, "match-group", "RULES", "Only allow controllers that match all of RULES")
+    .add_newline()
+
+    .add_text("Config Slot Options: ")
+    .add_option(OPTION_CONFIG_SLOT,        0, "config-slot",     "N", "Use configuration slot N")
+    .add_option(OPTION_NEXT_CONFIG,        0, "ui-new", "", "", false) // backward compatibility
+    .add_option(OPTION_NEXT_CONFIG,        0, "next-config", "", "Create a new configuration entry")
+    .add_option(OPTION_TOGGLE,             0, "toggle", "BTN", "Set button to use for toggling between configs")
+    .add_option(OPTION_TOGGLE,             0, "ui-toggle", "BTN", "", false) // backward compatibility
+    .add_newline()
+
+    .add_text("Configuration Options:")
+    .add_option(OPTION_MODIFIER,           0, "modifier",        "MOD=ARG:..", "Add a modifier to the modifier spec")
+    .add_option(OPTION_TIMEOUT,            0, "timeout",         "INT",  "Amount of time to wait fo a device event before processing autofire, etc. (default: 25)")
     .add_option(OPTION_BUTTONMAP,         'b', "buttonmap",      "MAP",   "Remap the buttons as specified by MAP (example: B=A,X=A,Y=A)")
     .add_option(OPTION_AXISMAP,           'a', "axismap",        "MAP",   "Remap the axis as specified by MAP (example: -Y1=Y1,X1=X2)")
-    .add_option(OPTION_SQUARE_AXIS,        0, "square-axis",       "",     "Cause the diagonals to be reported as (1,1) instead of (0.7, 0.7)")
-    .add_option(OPTION_FOUR_WAY_RESTRICTOR,0, "four-way-restrictor", "",  "Restrict axis movement to one axis at a time")
-    .add_option(OPTION_DPAD_ROTATION,      0, "dpad-rotation",    "DEGREE", "Rotate the dpad by the given DEGREE, must be a multiple of 45")
-    .add_option(OPTION_AXIS_SENSITIVITY,   0, "axis-sensitivity", "MAP",  "Adjust the axis sensitivity (example: X1=2.0,Y1=1.0)")
-    .add_option(OPTION_RELATIVE_AXIS,      0, "relative-axis",    "MAP",  "Make an axis emulate a joystick throttle (example: y2=64000)")
+    .add_newline()
+
+    .add_text("Modifier Preset Options: ")
     .add_option(OPTION_AUTOFIRE,           0, "autofire",         "MAP",  "Cause the given buttons to act as autofire (example: A=250)")
+    .add_option(OPTION_AXIS_SENSITIVITY,   0, "axis-sensitivity", "MAP",  "Adjust the axis sensitivity (example: X1=2.0,Y1=1.0)")
     .add_option(OPTION_CALIBRARIOTION,     0, "calibration",      "MAP",  "Changes the calibration for the given axis (example: X2=-32768:0:32767)")
+    .add_option(OPTION_DEADZONE,           0, "deadzone",         "INT",  "Threshold under which axis events are ignored (default: 0)")
+    .add_option(OPTION_DEADZONE_TRIGGER,   0, "deadzone-trigger", "INT",  "Threshold under which trigger events are ignored (default: 0)")
+    .add_option(OPTION_DPAD_ROTATION,      0, "dpad-rotation",    "DEGREE", "Rotate the dpad by the given DEGREE, must be a multiple of 45")
+    .add_option(OPTION_FOUR_WAY_RESTRICTOR,0, "four-way-restrictor", "",  "Restrict axis movement to one axis at a time")
+    .add_option(OPTION_RELATIVE_AXIS,      0, "relative-axis",    "MAP",  "Make an axis emulate a joystick throttle (example: y2=64000)")
+    .add_option(OPTION_SQUARE_AXIS,        0, "square-axis",       "",     "Cause the diagonals to be reported as (1,1) instead of (0.7, 0.7)")
     .add_newline()
 
     .add_text("Uinput Preset Configuration Options: ")
@@ -203,20 +263,18 @@ CommandLineParser::init_argp()
     .add_option(OPTION_TRIGGER_AS_ZAXIS,   0, "trigger-as-zaxis", "",     "Combine LT and RT to form a zaxis instead")
     .add_option(OPTION_DPAD_AS_BUTTON,     0, "dpad-as-button",   "",     "DPad sends button instead of axis events")
     .add_option(OPTION_DPAD_ONLY,          0, "dpad-only",        "",     "Both sticks are ignored, only DPad sends out axis events")
-    .add_option(OPTION_MOUSE,             'm', "mouse",            "",     "Enable mouse emulation")
     .add_option(OPTION_GUITAR,             0, "guitar",            "",     "Enables guitar button and axis mapping")
+    .add_option(OPTION_MOUSE,             'm', "mouse",            "",     "Enable mouse emulation")
     .add_option(OPTION_MIMIC_XPAD,         0,  "mimic-xpad",  "", "Causes xboxdrv to use the same axis and button names as the xpad kernel driver")
     .add_newline()
 
     .add_text("Uinput Configuration Options: ")
-    .add_option(OPTION_NO_UINPUT,          0,  "no-uinput",   "", "do not try to start uinput event dispatching")
+    .add_option(OPTION_NO_UINPUT,          0, "no-uinput",   "", "do not try to start uinput event dispatching")
+    .add_option(OPTION_NO_EXTRA_DEVICES,   0, "no-extra-devices",  "", "Do not create separate virtual keyboard and mouse devices, just use a single virtual device")
     .add_option(OPTION_NAME,               0, "name",             "DEVNAME", "Changes the descriptive name the device will have")
-    .add_option(OPTION_UI_NEW,             0, "ui-new",           "",     "Create a new uinput configuration entry")
     .add_option(OPTION_UI_CLEAR,           0, "ui-clear",         "",     "Removes all existing uinput bindings")
-    .add_option(OPTION_UI_TOGGLE,          0, "ui-toggle",        "BTN",  "Set button to use for toggling between configs")
     .add_option(OPTION_UI_BUTTONMAP,       0, "ui-buttonmap",     "MAP",  "Changes the uinput events send when hitting a button (example: X=BTN_Y,A=KEY_A)")
     .add_option(OPTION_UI_AXISMAP,         0, "ui-axismap",       "MAP",  "Changes the uinput events send when moving a axis (example: X1=ABS_X2)")
-    .add_option(OPTION_NO_EXTRA_DEVICES,   0, "no-extra-devices",  "", "Do not create separate virtual keyboard and mouse devices, just use a single virtual device")
     .add_newline()
 
     .add_text("Axis Filter:")
@@ -234,6 +292,13 @@ CommandLineParser::init_argp()
     .add_pseudo("  auto, autofire:RATE:DELAY", "Enable automatic button press repetition")
     .add_pseudo("  log:STRING", "Print button value to stdout")
     .add_newline()
+
+    .add_text("Modifier:")
+    .add_pseudo("  dpad-rotate=DEGREE", "Rotate the dpad by the given number of degree")
+    .add_pseudo("  4wayrest, four-way-restrictor=XAXIS:YAXIS", "Restrict the given stick to four directions")
+    .add_pseudo("  square, square-axis=XAXIS:YAXIS", "Convert the circular motion range of the given stick to a square one")
+    .add_pseudo("  rotate=XAXIS:YAXIS:DEGREE[:MIRROR]", "Rotate the given stick by DEGREE, optionally also mirror it")
+    .add_newline()
   
     .add_text("See README for more documentation and examples.")
     .add_text("Report bugs to Ingo Ruhnke <grumbel@gmail.com>");
@@ -245,7 +310,7 @@ CommandLineParser::init_ini(Options* opts)
   m_ini.clear();
 
   m_ini.section("xboxdrv")
-    ("verbose", &opts->verbose)
+    ("verbose", boost::bind(&Options::set_verbose, boost::ref(opts)), boost::function<void ()>())
     ("silent", &opts->silent)
     ("quiet",  &opts->quiet)
     ("rumble", &opts->rumble)
@@ -260,29 +325,34 @@ CommandLineParser::init_ini(Options* opts)
     ("detach-kernel-driver", &opts->detach_kernel_driver)
     ("busid", &opts->busid)
     ("devid", &opts->devid)
-    ("deadzone", &opts->deadzone)
-    ("deadzone-trigger", &opts->deadzone_trigger)
     ("vendor-id", &opts->vendor_id)
     ("product-id", &opts->product_id)   
-    ("square-axis", &opts->square_axis)
-    ("four-way-restrictor", &opts->four_way_restrictor)
-    ("dpad-rotation", &opts->dpad_rotation)
     ("evdev", &opts->evdev_device)
     ("evdev-grab", &opts->evdev_grab)
     ("evdev-debug", &opts->evdev_debug)
     ("config", boost::bind(&CommandLineParser::read_config_file, this, opts, _1))
     ("alt-config", boost::bind(&CommandLineParser::read_alt_config_file, this, opts, _1))
+    ("timeout", &opts->timeout)
+    ("next", boost::bind(&Options::next_config, boost::ref(opts)), boost::function<void ()>())
+    ("next-controller", boost::bind(&Options::next_controller, boost::ref(opts)), boost::function<void ()>())
+    ("extra-devices", &opts->extra_devices)
+
+    ("deadzone", boost::bind(&CommandLineParser::set_deadzone, this, _1))
+    ("deadzone-trigger", boost::bind(&CommandLineParser::set_deadzone_trigger, this, _1))
+    ("square-axis", boost::bind(&CommandLineParser::set_square_axis, this), boost::function<void ()>())
+    ("four-way-restrictor", boost::bind(&CommandLineParser::set_four_way_restrictor, this), boost::function<void ()>())
+    ("dpad-rotation", boost::bind(&CommandLineParser::set_dpad_rotation, this, _1))
 
     // uinput stuff
-    ("device-name", &opts->uinput_config.device_name)
-    ("mouse", boost::bind(&uInputCfg::mouse, boost::ref(opts->uinput_config)), boost::function<void ()>())
-    ("guitar", boost::bind(&uInputCfg::guitar, boost::ref(opts->uinput_config)), boost::function<void ()>())
-    ("trigger-as-button", boost::bind(&uInputCfg::trigger_as_button, boost::ref(opts->uinput_config)), boost::function<void ()>())
-    ("trigger-as-zaxis", boost::bind(&uInputCfg::trigger_as_zaxis, boost::ref(opts->uinput_config)), boost::function<void ()>())
-    ("dpad-as-button", boost::bind(&uInputCfg::dpad_as_button, boost::ref(opts->uinput_config)), boost::function<void ()>())
-    ("dpad-only", boost::bind(&uInputCfg::dpad_only, boost::ref(opts->uinput_config)), boost::function<void ()>())
-    ("force-feedback", &opts->uinput_config.force_feedback)
-    ("mimic-xpad", boost::bind(&uInputCfg::mimic_xpad, boost::ref(opts->uinput_config)), boost::function<void ()>())
+    ("device-name",       boost::bind(&Options::set_device_name, boost::ref(opts), _1))
+    ("mouse",             boost::bind(&Options::set_mouse, boost::ref(opts)),             boost::function<void ()>())
+    ("guitar",            boost::bind(&Options::set_guitar, boost::ref(opts)),            boost::function<void ()>())
+    ("trigger-as-button", boost::bind(&Options::set_trigger_as_button, boost::ref(opts)), boost::function<void ()>())
+    ("trigger-as-zaxis",  boost::bind(&Options::set_trigger_as_zaxis, boost::ref(opts)),  boost::function<void ()>())
+    ("dpad-as-button",    boost::bind(&Options::set_dpad_as_button, boost::ref(opts)),    boost::function<void ()>())
+    ("dpad-only",         boost::bind(&Options::set_dpad_only, boost::ref(opts)),         boost::function<void ()>())
+    ("force-feedback",    boost::bind(&Options::set_force_feedback, boost::ref(opts), _1))
+    ("mimic-xpad",        boost::bind(&Options::set_mimic_xpad, boost::ref(opts)),        boost::function<void ()>())
 
     ("chatpad",         &opts->chatpad)
     ("chatpad-no-init", &opts->chatpad_no_init)
@@ -294,13 +364,21 @@ CommandLineParser::init_ini(Options* opts)
     ("headset-play",    &opts->headset_play)
     ;
 
-  m_ini.section("ui-buttonmap", boost::bind(&uInputCfg::set_ui_buttonmap, 
-                                            boost::ref(opts->uinput_config), _1, _2));
-  m_ini.section("ui-axismap",   boost::bind(&uInputCfg::set_ui_axismap, 
-                                            boost::ref(opts->uinput_config), _1, _2));
+  m_ini.section("xboxdrv-daemon")
+    ("detach",        
+     boost::bind(&Options::set_daemon_detach, boost::ref(opts), true),
+     boost::bind(&Options::set_daemon_detach, boost::ref(opts), false))
+    ("pid-file",      &opts->pid_file)
+    ("on-connect",    &opts->on_connect)
+    ("on-disconnect", &opts->on_disconnect)
+    ;
+
+  m_ini.section("modifier",     boost::bind(&CommandLineParser::set_modifier,     this, _1, _2));
+  m_ini.section("ui-buttonmap", boost::bind(&CommandLineParser::set_ui_buttonmap, this, _1, _2));
+  m_ini.section("ui-axismap",   boost::bind(&CommandLineParser::set_ui_axismap,   this, _1, _2));
 
   m_ini.section("buttonmap", boost::bind(&CommandLineParser::set_buttonmap, this, _1, _2));
-  m_ini.section("axismap",   boost::bind(&CommandLineParser::set_axismap, this, _1, _2));
+  m_ini.section("axismap",   boost::bind(&CommandLineParser::set_axismap,   this, _1, _2));
 
   m_ini.section("autofire",   boost::bind(&CommandLineParser::set_autofire, this, _1, _2));
   m_ini.section("relative-axis",   boost::bind(&CommandLineParser::set_relative_axis, this, _1, _2));
@@ -335,20 +413,31 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         break;
           
       case OPTION_VERBOSE:
-        opts.verbose = true;
+        opts.set_verbose();
         break;
 
       case OPTION_QUIET:
-        opts.quiet   = true;
+        opts.quiet = true;
         break;
 
       case OPTION_SILENT:
         opts.silent = true;
         break;
 
+      case OPTION_DEBUG:
+        opts.set_debug();
+        break;
+
       case OPTION_DAEMON:
-        opts.silent = true;
-        opts.mode = Options::RUN_DAEMON;
+        opts.set_daemon();
+        break;
+
+      case OPTION_DAEMON_MATCH:
+        opts.set_match(opt.argument);
+        break;
+
+      case OPTION_DAEMON_MATCH_GROUP:
+        opts.set_match_group(opt.argument);
         break;
 
       case OPTION_WRITE_CONFIG:
@@ -409,12 +498,16 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         opts.instant_exit = true;
         break;
 
+      case OPTION_TIMEOUT:
+        opts.timeout = boost::lexical_cast<int>(opt.argument);
+        break;
+
       case OPTION_NO_UINPUT:
         opts.no_uinput = true;
         break;
 
       case OPTION_MIMIC_XPAD:
-        opts.uinput_config.mimic_xpad();
+        opts.get_controller_options().uinput.mimic_xpad();
         break;
 
       case OPTION_TYPE:
@@ -449,6 +542,10 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         else if (opt.argument == "saitek-p2500")
         {
           opts.gamepad_type = GAMEPAD_SAITEK_P2500;
+        }
+        else if (opt.argument == "playstation3-usb")
+        {
+          opts.gamepad_type = GAMEPAD_PLAYSTATION3_USB;
         }
         else
         {
@@ -493,11 +590,15 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         break;
 
       case OPTION_FORCE_FEEDBACK:
-        opts.uinput_config.force_feedback = true;
+        opts.get_controller_slot().set_force_feedback(true);
         break;
 
       case OPTION_RUMBLE_GAIN:
         opts.rumble_gain = to_number(255, opt.argument);
+        break;
+
+      case OPTION_MODIFIER:
+        process_name_value_string(opt.argument, boost::bind(&CommandLineParser::set_modifier, this, _1, _2));
         break;
 
       case OPTION_BUTTONMAP:
@@ -509,42 +610,50 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         break;
                     
       case OPTION_NAME:
-        opts.uinput_config.device_name = opt.argument;
+        opts.get_controller_options().uinput.device_name = opt.argument;
         break;
 
-      case OPTION_UI_NEW:
-        opts.uinput_config.add_input_mapping();
-        if (opts.uinput_config.config_toggle_button == XBOX_BTN_UNKNOWN)
-        {
-          opts.uinput_config.config_toggle_button = XBOX_BTN_GUIDE;
-        }
+      case OPTION_NEXT_CONFIG:
+        opts.next_config();
         break;
 
-      case OPTION_UI_TOGGLE:
-        opts.uinput_config.config_toggle_button = string2btn(opt.argument);
+      case OPTION_NEXT_CONTROLLER:
+        opts.next_controller();
+        break;
+
+      case OPTION_CONTROLLER_SLOT:
+        opts.controller_slot = boost::lexical_cast<int>(opt.argument);
+        break;
+
+      case OPTION_CONFIG_SLOT:
+        opts.config_slot = boost::lexical_cast<int>(opt.argument);
+        break;
+
+      case OPTION_TOGGLE:
+        opts.config_toggle_button = string2btn(opt.argument);
         break;
 
       case OPTION_UI_CLEAR:
-        opts.uinput_config.get_axis_map().clear();
-        opts.uinput_config.get_btn_map().clear();
+        opts.get_controller_options().uinput.get_axis_map().clear();
+        opts.get_controller_options().uinput.get_btn_map().clear();
         break;
 
       case OPTION_UI_AXISMAP:
-        process_name_value_string(opt.argument, boost::bind(&uInputCfg::set_ui_axismap, 
-                                                            boost::ref(opts.uinput_config), _1, _2));
+        process_name_value_string(opt.argument, boost::bind(&UInputOptions::set_ui_axismap, 
+                                                            boost::ref(opts.get_controller_options().uinput), _1, _2));
         break;
 
       case OPTION_UI_BUTTONMAP:
-        process_name_value_string(opt.argument, boost::bind(&uInputCfg::set_ui_buttonmap, 
-                                                            boost::ref(opts.uinput_config), _1, _2));
+        process_name_value_string(opt.argument, boost::bind(&UInputOptions::set_ui_buttonmap, 
+                                                            boost::ref(opts.get_controller_options().uinput), _1, _2));
         break;
 
       case OPTION_MOUSE:
-        opts.uinput_config.mouse();
+        opts.get_controller_options().uinput.mouse();
         break;
 
       case OPTION_GUITAR:
-        opts.uinput_config.guitar();
+        opts.get_controller_options().uinput.guitar();
         break;
 
       case OPTION_DETACH_KERNEL_DRIVER:
@@ -593,31 +702,35 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
           opts.led = boost::lexical_cast<int>(opt.argument);
         }
         break;
+
+      case OPTION_NO_EXTRA_DEVICES:
+        opts.extra_devices = false;
+        break;
             
       case OPTION_DPAD_ONLY:
-        opts.uinput_config.dpad_only();
+        opts.set_dpad_only();
         break;
             
       case OPTION_DPAD_AS_BUTTON:
-        opts.uinput_config.dpad_as_button();
+        opts.set_dpad_as_button();
         break;
 
       case OPTION_DEADZONE:
-        opts.deadzone = to_number(32767, opt.argument);
+        set_deadzone(opt.argument);
         break;
 
       case OPTION_DEADZONE_TRIGGER:
-        opts.deadzone_trigger = to_number(255, opt.argument);
+        set_deadzone_trigger(opt.argument);
         break;
 
       case OPTION_TRIGGER_AS_BUTTON:
-        opts.uinput_config.trigger_as_button();
+        opts.set_trigger_as_button();
         break;
         
       case OPTION_TRIGGER_AS_ZAXIS:
-        opts.uinput_config.trigger_as_zaxis();
+        opts.set_trigger_as_zaxis();
         break;
-
+        
       case OPTION_AUTOFIRE:
         process_name_value_string(opt.argument, boost::bind(&CommandLineParser::set_autofire, this, _1, _2));
         break;
@@ -635,25 +748,35 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         break;
 
       case OPTION_FOUR_WAY_RESTRICTOR:
-        opts.four_way_restrictor = true;
+        set_four_way_restrictor();
         break;
 
       case OPTION_DPAD_ROTATION:
-        {
-          int degree = boost::lexical_cast<int>(opt.argument);
-          degree /= 45;
-          degree %= 8;
-          if (degree < 0) degree += 8;
-          opts.dpad_rotation = degree;
-        }
+        set_dpad_rotation(opt.argument);
         break;
 
       case OPTION_SQUARE_AXIS:
-        opts.square_axis = true;
+        set_square_axis();
         break;
 
       case OPTION_HELP_LED:
         opts.mode = Options::PRINT_LED_HELP;
+        break;
+
+      case OPTION_DAEMON_DETACH:
+        opts.set_daemon_detach(true);
+        break;
+
+      case OPTION_DAEMON_PID_FILE:
+        opts.pid_file = opt.argument;
+        break;
+
+      case OPTION_DAEMON_ON_CONNECT:
+        opts.on_connect = opt.argument;
+        break;
+
+      case OPTION_DAEMON_ON_DISCONNECT:
+        opts.on_disconnect = opt.argument;
         break;
 
       case OPTION_DEVICE_BY_ID:
@@ -705,6 +828,41 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         opts.mode = Options::PRINT_HELP_DEVICES;
         break;
 
+      case OPTION_LIST_ALL:
+        opts.mode = Options::PRINT_ENUMS;
+        opts.list_enums |= Options::LIST_ALL;
+        break;
+
+      case OPTION_LIST_ABS:
+        opts.mode = Options::PRINT_ENUMS;
+        opts.list_enums |= Options::LIST_ABS;
+        break;
+
+      case OPTION_LIST_REL:
+        opts.mode = Options::PRINT_ENUMS;
+        opts.list_enums |= Options::LIST_REL;
+        break;
+
+      case OPTION_LIST_KEY:
+        opts.mode = Options::PRINT_ENUMS;
+        opts.list_enums |= Options::LIST_KEY;
+        break;
+
+      case OPTION_LIST_X11KEYSYM:
+        opts.mode = Options::PRINT_ENUMS;
+        opts.list_enums |= Options::LIST_X11KEYSYM;
+        break;
+
+      case OPTION_LIST_AXIS:
+        opts.mode = Options::PRINT_ENUMS;
+        opts.list_enums |= Options::LIST_AXIS;
+        break;
+
+      case OPTION_LIST_BUTTON:
+        opts.mode = Options::PRINT_ENUMS;
+        opts.list_enums |= Options::LIST_BUTTON;
+        break;
+
       case ArgParser::REST_ARG:
         //RAISE_EXCEPTION("unknown command line option: " << opt.argument);
         opts.exec.push_back(opt.argument);
@@ -715,6 +873,8 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         break;
     }
   }
+
+  options->finish();
 }
 
 void
@@ -755,19 +915,38 @@ CommandLineParser::print_version() const
     << "Copyright © 2008-2010 Ingo Ruhnke <grumbel@gmx.de>\n"
     << "Licensed under GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n"
     << "This program comes with ABSOLUTELY NO WARRANTY.\n"
-    << "This is free software, and you are welcome to redistribute it under certain conditions; see the file COPYING for details.\n";
+    << "This is free software, and you are welcome to redistribute it under certain\n"
+    << "conditions; see the file COPYING for details.\n";
+}
+
+void
+CommandLineParser::set_modifier(const std::string& name, const std::string& value)
+{
+  m_options->get_controller_options().modifier.push_back(ModifierPtr(Modifier::from_string(name, value)));
+}
+
+void
+CommandLineParser::set_ui_buttonmap(const std::string& name, const std::string& value)
+{
+  m_options->get_controller_options().uinput.set_ui_buttonmap(name, value);
+}
+
+void
+CommandLineParser::set_ui_axismap(const std::string& name, const std::string& value)
+{
+  m_options->get_controller_options().uinput.set_ui_axismap(name, value);
 }
 
 void
 CommandLineParser::set_axismap(const std::string& name, const std::string& value)
 {
-  m_options->axis_map.push_back(AxisMapping::from_string(name, value));
+  m_options->get_controller_options().axismap->add(AxisMapping::from_string(name, value));
 }
 
 void
 CommandLineParser::set_buttonmap(const std::string& name, const std::string& value)
 {
-  m_options->button_map.push_back(ButtonMapping::from_string(name, value));
+  m_options->get_controller_options().buttonmap->add(ButtonMapping::from_string(name, value));
 }
 
 void
@@ -799,25 +978,77 @@ CommandLineParser::set_evdev_keymap(const std::string& name, const std::string& 
 void
 CommandLineParser::set_relative_axis(const std::string& name, const std::string& value)
 {
-  m_options->relative_axis_map.push_back(RelativeAxisMapping::from_string(name, value));
+  m_options->get_controller_options().relative_axis_map[string2axis(name)]
+    = AxisFilterPtr(new RelativeAxisFilter(boost::lexical_cast<int>(value)));
 }
 
 void
 CommandLineParser::set_autofire(const std::string& name, const std::string& value)
 {
-  m_options->autofire_map.push_back(AutoFireMapping::from_string(name, value));
+  m_options->get_controller_options().autofire_map[string2btn(name)]
+    = ButtonFilterPtr(new AutofireButtonFilter(boost::lexical_cast<int>(value), 0));
 }
 
 void
 CommandLineParser::set_calibration(const std::string& name, const std::string& value)
 {
-  m_options->calibration_map.push_back(CalibrationMapping::from_string(name, value));
+  typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+  tokenizer tokens(value, boost::char_separator<char>(":", "", boost::keep_empty_tokens));
+  std::vector<std::string> args(tokens.begin(), tokens.end());
+  
+  if (args.size() != 3)
+  {
+    throw std::runtime_error("calibration requires MIN:CENTER:MAX as argument");
+  }
+  else
+  {
+    m_options->get_controller_options().calibration_map[string2axis(name)]
+      = AxisFilterPtr(new CalibrationAxisFilter(boost::lexical_cast<int>(args[0]), 
+                                                boost::lexical_cast<int>(args[1]), 
+                                                boost::lexical_cast<int>(args[2])));
+  }
 }
 
 void
 CommandLineParser::set_axis_sensitivity(const std::string& name, const std::string& value)
 {
-  m_options->axis_sensitivity_map.push_back(AxisSensitivityMapping::from_string(name, value));
+  m_options->get_controller_options().sensitivity_map[string2axis(name)]
+    = AxisFilterPtr(new SensitivityAxisFilter(boost::lexical_cast<float>(value)));
+}
+
+void
+CommandLineParser::set_deadzone(const std::string& value)
+{
+  m_options->get_controller_options().deadzone = to_number(32767, value);
+}
+
+void
+CommandLineParser::set_deadzone_trigger(const std::string& value)
+{
+  m_options->get_controller_options().deadzone_trigger = to_number(255, value);
+}
+
+void
+CommandLineParser::set_square_axis()
+{
+  m_options->get_controller_options().square_axis = true;
+}
+
+void
+CommandLineParser::set_four_way_restrictor()
+{
+  m_options->get_controller_options().four_way_restrictor = true;
+}
+
+void
+CommandLineParser::set_dpad_rotation(const std::string& value)
+{
+  int degree = boost::lexical_cast<int>(value);
+  degree /= 45;
+  degree %= 8;
+  if (degree < 0) degree += 8;
+
+  m_options->get_controller_options().dpad_rotation = degree;
 }
 
 void
@@ -842,7 +1073,7 @@ CommandLineParser::read_config_file(Options* opts, const std::string& filename)
 void
 CommandLineParser::read_alt_config_file(Options* opts, const std::string& filename)
 {
-  opts->uinput_config.add_input_mapping();
+  opts->next_config();
   read_config_file(opts, filename);
 }
 

@@ -16,17 +16,13 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <linux/input.h>
-#include <assert.h>
-#include <boost/tokenizer.hpp>
-#include <boost/lexical_cast.hpp>
-#include <stdlib.h>
-#include <iostream>
-
 #include "axis_event.hpp"
+
+#include <boost/tokenizer.hpp>
+
 #include "evdev_helper.hpp"
+#include "log.hpp"
 #include "uinput.hpp"
-#include "uinput_deviceid.hpp"
 
 AxisEventPtr
 AxisEvent::invalid() 
@@ -88,17 +84,17 @@ AxisEvent::from_string(const std::string& str)
         ev.reset(new AxisEvent(KeyAxisEventHandler::from_string(str)));
         break;
 
-      case -1:
-        std::cout << "--------- invalid --------------" << std::endl;
+      case -1: // void/none
         ev = invalid();
         break;
 
       default:
-        assert(!"AxisEvent::from_string(): should never be reached");
+        assert(!"should never be reached");
     }
   }
 
-  //std::cout << "AxisEvent::from_string():\n  in:  " << str << "\n  out: " << ev->str() << std::endl;
+  log_debug("in:  " << str);
+  log_debug("out: " << ev->str());
 
   return ev;
 }
@@ -120,13 +116,13 @@ AxisEvent::add_filter(AxisFilterPtr filter)
 }
 
 void
-AxisEvent::init(uInput& uinput) const
+AxisEvent::init(UInput& uinput, int slot, bool extra_devices)
 {
-  m_handler->init(uinput);
+  m_handler->init(uinput, slot, extra_devices);
 }
 
 void
-AxisEvent::send(uInput& uinput, int value)
+AxisEvent::send(UInput& uinput, int value)
 {
   m_last_raw_value = value;
 
@@ -143,7 +139,7 @@ AxisEvent::send(uInput& uinput, int value)
 }
 
 void
-AxisEvent::update(uInput& uinput, int msec_delta)
+AxisEvent::update(UInput& uinput, int msec_delta)
 {
   for(std::vector<AxisFilterPtr>::const_iterator i = m_filters.begin(); i != m_filters.end(); ++i)
   {
@@ -207,29 +203,29 @@ RelAxisEventHandler::from_string(const std::string& str)
   return ev.release();
 }
 
-RelAxisEventHandler::RelAxisEventHandler()
+RelAxisEventHandler::RelAxisEventHandler() :
+  m_code(UIEvent::invalid()),
+  m_value(5),
+  m_repeat(10)
 {
-  m_code = UIEvent::invalid();
-  m_value  = 5;
-  m_repeat = 10;
 }
 
-RelAxisEventHandler::RelAxisEventHandler(int device_id, int code, int repeat, float value)
+RelAxisEventHandler::RelAxisEventHandler(int device_id, int code, int repeat, float value) :
+  m_code(UIEvent::create(device_id, EV_REL, code)),
+  m_value(value),
+  m_repeat(repeat)
 {
-  m_code   = UIEvent::create(device_id, EV_REL, code);
-  m_value  = value;
-  m_repeat = repeat;
-}
-
-void
-RelAxisEventHandler::init(uInput& uinput) const
-{
-  uinput.create_uinput_device(m_code.device_id);
-  uinput.add_rel(m_code.device_id, m_code.code);
 }
 
 void
-RelAxisEventHandler::send(uInput& uinput, int value)
+RelAxisEventHandler::init(UInput& uinput, int slot, bool extra_devices)
+{
+  m_code.resolve_device_id(slot, extra_devices);
+  uinput.add_rel(m_code.get_device_id(), m_code.code);
+}
+
+void
+RelAxisEventHandler::send(UInput& uinput, int value)
 {
   // FIXME: Need to know the min/max of value
   int v = m_value * value / 32767;
@@ -240,7 +236,7 @@ RelAxisEventHandler::send(uInput& uinput, int value)
 }
 
 void
-RelAxisEventHandler::update(uInput& uinput, int msec_delta)
+RelAxisEventHandler::update(UInput& uinput, int msec_delta)
 {
 }
 
@@ -248,7 +244,7 @@ std::string
 RelAxisEventHandler::str() const
 {
   std::ostringstream out;
-  out << m_code.device_id << "-" << m_code.code << ":" << m_value << ":" << m_repeat;
+  out << m_code.get_device_id() << "-" << m_code.code << ":" << m_value << ":" << m_repeat;
   return out.str();
 }
 
@@ -313,26 +309,21 @@ AbsAxisEventHandler::set_axis_range(int min, int max)
 }
 
 void
-AbsAxisEventHandler::init(uInput& uinput) const
+AbsAxisEventHandler::init(UInput& uinput, int slot, bool extra_devices)
 {
-  uinput.create_uinput_device(m_code.device_id);
-  uinput.add_abs(m_code.device_id, m_code.code, 
+  m_code.resolve_device_id(slot, extra_devices);
+  uinput.add_abs(m_code.get_device_id(), m_code.code, 
                  m_min, m_max, m_fuzz, m_flat);
 }
 
 void
-AbsAxisEventHandler:: send(uInput& uinput, int value)
+AbsAxisEventHandler::send(UInput& uinput, int value)
 {
-  /*FIXME for(std::vector<AxisFilterPtr>::const_iterator i = m_filters.begin(); i != m_filters.end(); ++i)
-  {
-    value = (*i)->filter(old_value, value);
-    }*/
-
-  uinput.get_uinput(m_code.device_id)->send(EV_ABS, m_code.code, value);
+  uinput.send_abs(m_code.get_device_id(), m_code.code, value);
 }
  
 void
-AbsAxisEventHandler::update(uInput& uinput, int msec_delta)
+AbsAxisEventHandler::update(UInput& uinput, int msec_delta)
 {
 }
 
@@ -340,7 +331,7 @@ std::string
 AbsAxisEventHandler::str() const
 {
   std::ostringstream out;
-  out << m_code.device_id << "-" << m_code.code << ":" 
+  out << m_code.get_device_id() << "-" << m_code.code << ":" 
       << m_min << ":" << m_max << ":" 
       << m_fuzz << ":" << m_flat;
   return out.str();
@@ -399,32 +390,33 @@ KeyAxisEventHandler::from_string(const std::string& str)
 }
 
 KeyAxisEventHandler::KeyAxisEventHandler() :
-  m_old_value(0)
+  m_old_value(0),
+  m_up_codes(),
+  m_down_codes(),
+  m_threshold(8000)
 {
   std::fill_n(m_up_codes,   MAX_MODIFIER+1, UIEvent::invalid());
   std::fill_n(m_down_codes, MAX_MODIFIER+1, UIEvent::invalid());
-  m_threshold = 8000;
 }
 
 void
-KeyAxisEventHandler::init(uInput& uinput) const
+KeyAxisEventHandler::init(UInput& uinput, int slot, bool extra_devices)
 {
   for(int i = 0; m_up_codes[i].is_valid(); ++i)
   {
-    uinput.create_uinput_device(m_up_codes[i].device_id);
-    uinput.add_key(m_up_codes[i].device_id, m_up_codes[i].code);
+    m_up_codes[i].resolve_device_id(slot, extra_devices);
+    uinput.add_key(m_up_codes[i].get_device_id(), m_up_codes[i].code);
   }
 
   for(int i = 0; m_down_codes[i].is_valid(); ++i)
   {
-    uinput.create_uinput_device(m_down_codes[i].device_id);
-    uinput.add_key(m_down_codes[i].device_id, m_down_codes[i].code);
+    m_down_codes[i].resolve_device_id(slot, extra_devices);
+    uinput.add_key(m_down_codes[i].get_device_id(), m_down_codes[i].code);
   }
-
 }
 
 void
-KeyAxisEventHandler::send(uInput& uinput, int value)
+KeyAxisEventHandler::send(UInput& uinput, int value)
 {
   if (::abs(m_old_value) <  m_threshold &&
       ::abs(value)       >= m_threshold)
@@ -432,35 +424,35 @@ KeyAxisEventHandler::send(uInput& uinput, int value)
     if (value < 0)
     {
       for(int i = 0; m_up_codes[i].is_valid(); ++i)
-        uinput.send_key(m_down_codes[i].device_id, m_down_codes[i].code, false);
+        uinput.send_key(m_down_codes[i].get_device_id(), m_down_codes[i].code, false);
 
       for(int i = 0; m_up_codes[i].is_valid(); ++i)
-        uinput.send_key(m_up_codes[i].device_id, m_up_codes[i].code, true);
+        uinput.send_key(m_up_codes[i].get_device_id(), m_up_codes[i].code, true);
     }
     else // (value > 0)
     { 
       for(int i = 0; m_up_codes[i].is_valid(); ++i)
-        uinput.send_key(m_down_codes[i].device_id, m_down_codes[i].code, true);
+        uinput.send_key(m_down_codes[i].get_device_id(), m_down_codes[i].code, true);
 
       for(int i = 0; m_up_codes[i].is_valid(); ++i)
-        uinput.send_key(m_up_codes[i].device_id, m_up_codes[i].code, false);
+        uinput.send_key(m_up_codes[i].get_device_id(), m_up_codes[i].code, false);
     }
   }
   else if (::abs(m_old_value) >= m_threshold &&
            ::abs(value)       <  m_threshold)
   { // entering zero zone
     for(int i = 0; m_up_codes[i].is_valid(); ++i)
-      uinput.send_key(m_down_codes[i].device_id, m_down_codes[i].code, false);
+      uinput.send_key(m_down_codes[i].get_device_id(), m_down_codes[i].code, false);
 
     for(int i = 0; m_up_codes[i].is_valid(); ++i)
-      uinput.send_key(m_up_codes[i].device_id, m_up_codes[i].code, false);
+      uinput.send_key(m_up_codes[i].get_device_id(), m_up_codes[i].code, false);
   }
 
   m_old_value = value;
 }
 
 void
-KeyAxisEventHandler::update(uInput& uinput, int msec_delta)
+KeyAxisEventHandler::update(UInput& uinput, int msec_delta)
 {
 }
 
@@ -470,7 +462,7 @@ KeyAxisEventHandler::str() const
   std::ostringstream out;
   for(int i = 0; m_up_codes[i].is_valid();)
   {
-    out << m_up_codes[i].device_id << "-" << m_up_codes[i].code;
+    out << m_up_codes[i].get_device_id() << "-" << m_up_codes[i].code;
 
     ++i;
     if (m_up_codes[i].is_valid())
@@ -481,7 +473,7 @@ KeyAxisEventHandler::str() const
 
   for(int i = 0; m_down_codes[i].is_valid();)
   {
-    out << m_down_codes[i].device_id << "-" << m_down_codes[i].code;
+    out << m_down_codes[i].get_device_id() << "-" << m_down_codes[i].code;
 
     ++i;
     if (m_down_codes[i].is_valid())
