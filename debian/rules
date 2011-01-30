@@ -15,4 +15,7 @@
 override_dh_auto_install:
 	make install PREFIX="/usr" DESTDIR="$(CURDIR)/debian/xboxdrv"
 
+override_dh_installdocs:
+	dh_installdocs examples/
+
 # EOF #
