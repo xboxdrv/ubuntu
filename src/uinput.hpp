@@ -30,9 +30,28 @@ struct Xbox360GuitarMsg;
   
 class UInput
 {
+public:
+  static inline uint32_t create_device_id(uint16_t slot_id, uint16_t type_id)
+  {
+    return (slot_id << 16) | type_id;
+  }
+
+  static inline uint16_t get_type_id(uint32_t device_id)
+  {
+    return device_id & 0xffff;
+  }
+
+  static inline uint16_t get_slot_id(uint32_t device_id)
+  {
+    return ((device_id) >> 16) & 0xffff;
+  }
+
 private:
   typedef std::map<uint32_t, boost::shared_ptr<LinuxUinput> > UInputDevs;
-  UInputDevs uinput_devs;
+  UInputDevs m_uinput_devs;
+
+  typedef std::map<uint32_t, std::string> DeviceNames;
+  DeviceNames m_device_names;
 
   struct RelRepeat 
   {
@@ -42,16 +61,18 @@ private:
     int repeat_interval;
   };
 
-  std::map<UIEvent, RelRepeat> rel_repeat_lst;
+  std::map<UIEvent, RelRepeat> m_rel_repeat_lst;
 
   boost::mutex m_mutex;
+  bool m_extra_events;
 
 public:
-  UInput();
+  UInput(bool extra_events);
   ~UInput();
 
   void update(int msec_delta);
 
+  void set_device_names(const std::map<uint32_t, std::string>& device_names);
   void set_ff_callback(int device_id, const boost::function<void (uint8_t, uint8_t)>& callback);
 
   /** Device construction functions
@@ -87,6 +108,8 @@ private:
 
   /** must only be called with a valid device_id */
   LinuxUinput* get_uinput(uint32_t device_id) const;
+
+  std::string get_device_name(uint32_t device_id) const;
 };
 
 #endif

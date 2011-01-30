@@ -21,6 +21,7 @@
 #include <boost/format.hpp>
 #include <boost/scoped_array.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/scoped_array.hpp>
 #include <iostream>
 #include <signal.h>
 #include <stdio.h>
@@ -395,6 +396,11 @@ Xboxdrv::run_main(const Options& opts)
       raise_exception(std::runtime_error, "libusb_init() failed: " << usb_strerror(ret));
     }
     
+    if (opts.usb_debug)
+    {
+      libusb_set_debug(NULL, 3);
+    }
+
     // FIXME: this must be libusb_unref_device()'ed, child code must not keep a copy around
     libusb_device* dev = 0;
   
@@ -418,10 +424,10 @@ Xboxdrv::run_main(const Options& opts)
   int jsdev_number = find_jsdev_number();
   int evdev_number = find_evdev_number();
 
-  if (opts.led == -1)
+  if (opts.get_controller_slot().get_led_status() == -1)
     controller->set_led(2 + jsdev_number % 4);
   else
-    controller->set_led(opts.led);
+    controller->set_led(opts.get_controller_slot().get_led_status());
 
   if (opts.rumble_l != -1 && opts.rumble_r != -1)
   { // Only set rumble when explicitly requested
@@ -442,7 +448,8 @@ Xboxdrv::run_main(const Options& opts)
     {
       if (!opts.quiet)
         std::cout << "Starting with uinput" << std::endl;
-      uinput = std::auto_ptr<UInput>(new UInput());
+      uinput = std::auto_ptr<UInput>(new UInput(opts.extra_events));
+      uinput->set_device_names(opts.uinput_device_names);
     }
     else
     {
@@ -597,9 +604,14 @@ Xboxdrv::run_daemon(const Options& opts)
     raise_exception(std::runtime_error, "libusb_init() failed: " << usb_strerror(ret));
   }
 
+  if (opts.usb_debug)
+  {
+    libusb_set_debug(NULL, 3);
+  }
+
   if (!opts.detach)
   {
-    XboxdrvDaemon daemon;
+    XboxdrvDaemon daemon(opts);
     daemon.run(opts);
   }
   else
@@ -636,7 +648,7 @@ Xboxdrv::run_daemon(const Options& opts)
         }
         else
         {
-          XboxdrvDaemon daemon;
+          XboxdrvDaemon daemon(opts);
           daemon.run(opts);
         }
       }
