@@ -23,6 +23,7 @@
 
 #include "helper.hpp"
 #include "raise_exception.hpp"
+#include "uinput.hpp"
 
 Options* g_options;
 
@@ -31,7 +32,6 @@ Options::Options() :
   silent (false),
   quiet  (false),
   rumble (false),
-  led    (-1),
   rumble_l(-1),
   rumble_r(-1),
   rumble_gain(255),
@@ -68,7 +68,10 @@ Options::Options() :
   config_toggle_button(XBOX_BTN_UNKNOWN),
   controller_slot(0),
   config_slot(0),
-  extra_devices(true)
+  extra_devices(true),
+  extra_events(true),
+  uinput_device_names(),
+  usb_debug(false)
 {
   // create the entry if not already available
   controller_slots[controller_slot].get_options(config_slot);
@@ -123,6 +126,13 @@ Options::get_controller_options() const
 }
 
 void
+Options::set_ui_clear()
+{
+  get_controller_options().uinput.get_axis_map().clear();
+  get_controller_options().uinput.get_btn_map().clear();
+}
+
+void
 Options::next_controller()
 {
   controller_slot += 1;
@@ -160,9 +170,22 @@ Options::set_debug()
 }
 
 void
+Options::set_usb_debug()
+{
+  usb_debug = true;
+}
+
+void
+Options::set_led(const std::string& value)
+{
+  get_controller_slot().set_led_status(boost::lexical_cast<int>(value));
+}
+
+void
 Options::set_device_name(const std::string& name)
 {
-  //get_controller().uinput.mouse();
+  uint32_t device_id = UInput::create_device_id(controller_slot, DEVICEID_AUTO);
+  uinput_device_names[device_id] = name;
 }
 
 void
@@ -192,11 +215,13 @@ Options::set_trigger_as_zaxis()
 void
 Options::set_dpad_as_button()
 {
+  get_controller_options().uinput.dpad_as_button();
 }
 
 void
 Options::set_dpad_only()
 {
+  get_controller_options().uinput.dpad_only();
 }
 
 void
@@ -208,6 +233,12 @@ Options::set_force_feedback(const std::string& value)
 void
 Options::set_mimic_xpad()
 {
+  // BTN_BACK is recognized as mouse button, so we have to disallow
+  // automatic allocation
+  extra_devices = false;
+  extra_events  = false;
+
+  set_device_name("Microsoft X-Box 360 pad");
   get_controller_options().uinput.mimic_xpad();
 }
 
@@ -239,51 +270,7 @@ Options::set_quiet()
 void
 Options::add_match(const std::string& lhs, const std::string& rhs)
 {
-  typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-  tokenizer tokens(rhs, boost::char_separator<char>(":", "", boost::keep_empty_tokens));
-  std::vector<std::string> args(tokens.begin(), tokens.end());
-
-  if (lhs == "usbid")
-  {
-    if (args.size() != 2)
-    {
-      raise_exception(std::runtime_error, "usbid requires VENDOR:PRODUCT argument");
-    }
-    else
-    {
-      int vendor  = hexstr2int(args[0]);
-      int product = hexstr2int(args[1]);
-      get_controller_slot().add_match_rule(ControllerMatchRule::create_usb_id(vendor, product));
-    }
-  }
-  else if (lhs == "usbpath")
-  {
-    if (args.size() != 2)
-    {
-      raise_exception(std::runtime_error, "usbpath requires BUS:DEV argument");
-    }
-    else
-    {
-      int bus = boost::lexical_cast<int>(args[0]);
-      int dev = boost::lexical_cast<int>(args[1]);
-      get_controller_slot().add_match_rule(ControllerMatchRule::create_usb_path(bus, dev));
-    }
-  }
-  else if (lhs == "evdev")
-  {
-    if (args.size() != 1)
-    {
-      raise_exception(std::runtime_error, "evdev rule requires PATH argument");
-    }
-    else
-    {
-      get_controller_slot().add_match_rule(ControllerMatchRule::create_evdev_path(args[0]));
-    }
-  }
-  else
-  {
-    raise_exception(std::runtime_error, "'" << lhs << "' not a valid match rule name");
-  }
+  get_controller_slot().add_match_rule(ControllerMatchRule::from_string(lhs, rhs));
 }
 
 void
@@ -295,8 +282,11 @@ Options::set_match(const std::string& str)
 void
 Options::set_match_group(const std::string& str)
 {
-  // FIXME: not implied
-  assert(!"not implemented");
+  boost::shared_ptr<ControllerMatchRuleGroup> group(new ControllerMatchRuleGroup);
+
+  process_name_value_string(str, boost::bind(&ControllerMatchRuleGroup::add_rule_from_string, group, _1, _2));
+
+  get_controller_slot().add_match_rule(group);
 }
 
 void

@@ -25,7 +25,8 @@
 ControllerSlotOptions::ControllerSlotOptions() :
   m_options(),
   m_match_rules(),
-  m_force_feedback(false)
+  m_force_feedback(false),
+  m_led_status(-1)
 {
 }
 
@@ -50,12 +51,12 @@ ControllerSlotOptions::get_options(int num) const
 }
 
 void
-ControllerSlotOptions::add_match_rule(const ControllerMatchRule& rule)
+ControllerSlotOptions::add_match_rule(ControllerMatchRulePtr rule)
 {
   m_match_rules.push_back(rule);
 }
 
-const std::vector<ControllerMatchRule>&
+const std::vector<ControllerMatchRulePtr>&
 ControllerSlotOptions::get_match_rules() const
 {
   return m_match_rules;

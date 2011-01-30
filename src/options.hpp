@@ -58,7 +58,6 @@ public:
   bool silent;
   bool quiet;
   bool rumble;
-  int  led;
   int  rumble_l;
   int  rumble_r;
   int  rumble_gain;
@@ -115,6 +114,11 @@ public:
   int config_slot;
 
   bool extra_devices;
+  bool extra_events;
+
+  std::map<uint32_t, std::string> uinput_device_names;
+
+  bool usb_debug;
 
 public:
   Options();
@@ -126,13 +130,17 @@ public:
   ControllerOptions& get_controller_options();
   const ControllerOptions& get_controller_options() const;
 
+  void set_ui_clear();
+
   void next_controller();
   void next_config();
 
   void set_verbose();
   void set_debug();
+  void set_usb_debug();
   void set_quiet();
 
+  void set_led(const std::string& value);
   void set_device_name(const std::string& name);
   void set_mouse();
   void set_guitar();

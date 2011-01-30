@@ -23,11 +23,12 @@
 #include <stdint.h>
 
 enum {
-  DEVICEID_INVALID  = static_cast<uint16_t>(-4),
-  DEVICEID_KEYBOARD = static_cast<uint16_t>(-3),
-  DEVICEID_MOUSE    = static_cast<uint16_t>(-2),
+  DEVICEID_INVALID  = static_cast<uint16_t>(-5),
+  DEVICEID_KEYBOARD = static_cast<uint16_t>(-4),
+  DEVICEID_MOUSE    = static_cast<uint16_t>(-3),
+  DEVICEID_JOYSTICK = static_cast<uint16_t>(-2),
   DEVICEID_AUTO     = static_cast<uint16_t>(-1),
-  DEVICEID_JOYSTICK =  0
+  DEVICEID_GENERIC  = static_cast<uint16_t>(0)
 };
 
 enum {
@@ -67,6 +68,9 @@ private:
     out: "BTN_A", 3, DEVICEID_MOUSE
  */
 void split_event_name(const std::string& str, std::string* event_str, int* slot_id, int* device_id);
+
+int str2deviceid(const std::string& device);
+int str2slotid(const std::string& slot);
 
 #endif
 

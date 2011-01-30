@@ -21,13 +21,14 @@
 
 #include <boost/function.hpp>
 #include <linux/uinput.h>
+#include <stdint.h>
 
 class ForceFeedbackHandler;
 
 class LinuxUinput
 {
 public:
-  enum DeviceType { kGenericDevice, kMouseDevice, kJoystickDevice };
+  enum DeviceType { kGenericDevice, kKeyboardDevice, kMouseDevice, kJoystickDevice };
 
 private:
   DeviceType  m_device_type;
