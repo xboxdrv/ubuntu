@@ -431,10 +431,6 @@ XboxdrvDaemon::print_info(struct udev_device* device)
     }
   }
 #endif
-<<<<<<< HEAD
-=======
-
->>>>>>> master
   log_debug("\\----------------------------------------------");
 }
 
