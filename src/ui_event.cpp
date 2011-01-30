@@ -105,30 +105,37 @@ UIEvent::resolve_device_id(int slot, bool extra_devices)
 
   if (m_device_id == DEVICEID_AUTO)
   {
-    switch(type)
+    if (extra_devices)
     {
-      case EV_KEY:
-        if (is_mouse_button(code))
-        {
+      switch(type)
+      {
+        case EV_KEY:
+          if (is_mouse_button(code))
+          {
+            m_device_id = DEVICEID_MOUSE;
+          }
+          else if (is_keyboard_button(code))
+          {
+            m_device_id = DEVICEID_KEYBOARD;
+          }
+          else
+          {
+            m_device_id = DEVICEID_JOYSTICK;
+          }
+          break;
+
+        case EV_REL:
           m_device_id = DEVICEID_MOUSE;
-        }
-        else if (is_keyboard_button(code))
-        {
-          m_device_id = DEVICEID_KEYBOARD;
-        }
-        else
-        {
+          break;
+
+        case EV_ABS:
           m_device_id = DEVICEID_JOYSTICK;
-        }
-        break;
-
-      case EV_REL:
-        m_device_id = DEVICEID_MOUSE;
-        break;
-
-      case EV_ABS:
-        m_device_id = DEVICEID_JOYSTICK;
-        break;
+          break;
+      }
+    }
+    else
+    {
+      m_device_id = DEVICEID_GENERIC;
     }
   }
 
@@ -140,10 +147,8 @@ UIEvent::get_device_id() const
 {
   assert(m_device_id_resolved);
 
-  return (m_slot_id << 16) | m_device_id;
+  return UInput::create_device_id(m_slot_id, m_device_id);
 }
-
-namespace {
 
 int str2deviceid(const std::string& device)
 {
@@ -179,8 +184,6 @@ int str2slotid(const std::string& slot)
   {
     return boost::lexical_cast<int>(slot);
   }
-}
-
 }
 
 void split_event_name(const std::string& str, std::string* event_str, int* slot_id, int* device_id)

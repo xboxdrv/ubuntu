@@ -18,12 +18,16 @@
 
 #include "helper.hpp"
 
+#include <assert.h>
 #include <boost/format.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/lexical_cast.hpp>
 #include <stdio.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
+#include <errno.h>
+#include <iostream>
 
 #include "raise_exception.hpp"
 
@@ -132,11 +136,8 @@ uint32_t get_time()
   return tv.tv_sec * 1000 + tv.tv_usec/1000;
 }
 
-float to_float(int value, int min, int max)
+float to_float_no_range_check(int value, int min, int max)
 {
-  assert(value >= min);
-  assert(value <= max);
-
   // FIXME: '+1' is kind of a hack to
   // get the center at 0 for the
   // [-32768, 32767] case
@@ -150,6 +151,14 @@ float to_float(int value, int min, int max)
   {
     return static_cast<float>(value - center) / static_cast<float>(max - center);
   }
+}
+
+float to_float(int value, int min, int max)
+{
+  assert(value >= min);
+  assert(value <= max);
+
+  return to_float_no_range_check(value, min, max);
 }
 
 int from_float(float value, int min, int max)
@@ -167,6 +176,35 @@ int get_terminal_width()
   else
   {
     return w.ws_col;
+  }
+}
+
+void spawn_exe(const std::string& arg0)
+{
+  std::vector<std::string> args;
+  args.push_back(arg0);
+  spawn_exe(args);
+}
+
+void spawn_exe(const std::vector<std::string>& args)
+{
+  assert(!args.empty());
+
+  pid_t pid = fork();
+  if (pid == 0)
+  {
+    char** argv = static_cast<char**>(malloc(sizeof(char*) * (args.size() + 1)));
+    for(size_t i = 0; i < args.size(); ++i)
+    {
+      argv[i] = strdup(args[i].c_str());
+    }
+    argv[args.size()] = NULL;
+
+    if (execvp(args[0].c_str(), argv) == -1)
+    {
+      log_error(args[0] << ": exec failed: " << strerror(errno));
+      _exit(EXIT_FAILURE);
+    }
   }
 }
 

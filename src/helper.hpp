@@ -20,6 +20,8 @@
 #define HEADER_HELPER_HPP
 
 #include <boost/function.hpp>
+#include <stdint.h>
+#include <vector>
 
 int hexstr2int(const std::string& str);
 
@@ -48,7 +50,7 @@ T clamp (const T& low, const T& v, const T& high)
 } // namespace Math
 
 // Change the sign
-inline int16_t negate_16(int16_t v)
+inline int16_t s16_invert(int16_t v)
 {
   if (v)
     return static_cast<int16_t>(~v);
@@ -66,11 +68,14 @@ inline int16_t scale_8to16(int8_t a)
 
 /** converts the arbitary range to [-1,1] */
 float to_float(int value, int min, int max);
+float to_float_no_range_check(int value, int min, int max);
 
 /** converts the range [-1,1] to [min,max] */
 int from_float(float value, int min, int max);
 
 int get_terminal_width();
+void spawn_exe(const std::vector<std::string>& args);
+void spawn_exe(const std::string& arg0);
 
 #endif
 

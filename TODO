@@ -22,44 +22,117 @@ add libudev, libusb-1.0 to builddependencies
 
 $ cd ../debian/
 $ git checkout master
-$ git-import-orig -u 0.7.0 ~/projects/xboxdrv/htdocs/xboxdrv-linux-0.7.0.tar.bz2 
-$ dch -v "0.7.0-1" "xboxdrv 0.7.0 release"
+$ git-import-orig -u 0.7.1 ~/projects/xboxdrv/htdocs/xboxdrv-linux-0.7.1.tar.bz2 
+$ dch -v "0.7.1-1" "xboxdrv 0.7.1 release"
 $ git-buildpackage --git-no-create-orig --git-tag --git-builder="debuild -S"
-$ sudo pbuilder --build ../xboxdrv_0.7.0-1.dsc
-$ dput my-ppa ../xboxdrv_0.7.0-1_source.changes
+$ sudo pbuilder --build ../xboxdrv_0.7.1-1.dsc
+$ dput my-ppa ../xboxdrv_0.7.1-1_source.changes
 
 # Ubuntu 10.04 (LTS)
 
 $ cd ../debian/
 $ git checkout master-lts
 $ git merge master
-$ dch -b -v "0.7.0-1~lucid1" --distribution lucid "xboxdrv 0.7.0 backport"
+$ dch -b -v "0.7.1-1~lucid1" --distribution lucid "xboxdrv 0.7.1 backport"
 $ git-buildpackage --git-no-create-orig --git-debian-branch=master-lts --git-tag --git-builder="debuild -S"
-$ sudo pbuilder --build ../xboxdrv_0.7.0-1~lucid1.dsc
-$ dput my-ppa ../xboxdrv_0.7.0-1~lucid1_source.changes
-
-
-Stuff to do before 0.7.0 release:
-=================================
-
-* test test test, document
+$ sudo pbuilder --build ../xboxdrv_0.7.1-1~lucid1.dsc
+$ dput my-ppa ../xboxdrv_0.7.1-1~lucid1_source.changes
 
 
 Stuff to do before 0.7.1 release:
 =================================
 
-* --name DEVNAME must work with multple controller slots and multiple devices
+Documentation
+=============
 
-* turn EnumBox into singleton
+* update debian package description
 
-* allow --modifier help, --ui-buttonmap X2^help
+* copy examples to documentation dir in the Ubuntu packages
 
-* cleanup device_id, don't manually do (slot<<16) | devid (only an
-  issue in force feedback code)
+
+Stuff to do before 0.7.2 release:
+=================================
 
-* figure out a good place to set the LEDs off when Xboxdrv is quit,
-  just doing it in the destructor causes trouble, as the usbdev might
-  be no longer usable (when controller got unplugged)
+* add [controller0/config0] support for ControllerOptions
+
+* add [controller0] support for ControllerSlotOptions
+
+* BTN_A@joystick.1 doesn't work for a single joystick, why?
+
+* write relaxation modifier/filter
+
+* make extra-event creation a bit more clever, i.e. only create BTN_A
+  when needed, not when another button is present that can be used to
+  identify the device as joystick, also document exactly which
+  buttons/axis combinations are valid.
+
+Daemon
+======
+
+* improve output in daemon mode, when --quiet is not given print the
+  number of allocated controller slots
+
+* how exactly does daemon interact with wireless pads?! allow --wid --id for daemon
+
+Other Stuff
+===========
+
+* in INI files allow:
+
+  [xboxdrv]
+  ui-buttonmap = A=BTN_A,B=BTN_B,...
+
+  - in general cleanup config handling, turn almost everything into
+    proper functions and use the same functions for both cmdline and ini
+
+* --ui-axismap LT=KEY_A:KEY_B:1 
+
+Here KEY_B is the key you want to send and KEY_A is a random other key
+that you don't need. It's a hack as mapping both to KEY_B seems to
+cause some trouble with automatic key repeat for some reason. Note
+that you must not combine this with --trigger-as-zaxis as that will
+disable LT and RT
+
+* check how daemon reacts on suspend
+  - suspending the computer leads to LIBUSB_ERROR_IO, unplugging the
+    controller leads to LIBUSB_ERROR_OTHER
+
+* remember controllers that couldn't be used when all slots where full
+  and use them when a slot got free
+
+* improve output on which uinput devices are created (even with udev
+  there doesn't seem to be a bullet proof way to detect what gets
+  created)
+
+* do modifier/filter dump when --verbose is given, make verbose
+  overall more useful
+
+* remove uinput.send_rel_repetitive() replace with just EventHandler::update()
+
+* add --device-usbid TYPE.SLOT=VENDOR:PRODUCT:VERSION
+
+* allow multiple controllers in non-daemon mode
+
+* make more use of percentance values (in deadzone filter for example)
+
+* add extra arguments to --on-connect and --on-disconnect (controller name, usb path, etc.)
+
+* boost::lexical_cast<> error messages are useless, make some better ones
+
+* couldn't convert 'XK_Page_Up' to enum, not a member of X11Keysym
+  currenty code can't handle multple names for a single key
+
+* --match again sysname could make sense, seems somewhat constant:
+  "5-2" Xbox1 controller results in "5-2.1", due to being really two
+  devices, would help to now how exactly those are formed
+
+* --four-way-restrictor for the dpad?
+
+  - keep whatever direction is pressed first, don't allow walking over diagonals?
+  - always keep last main direction until another main direction got pressed?
+  - --disable-dpad-diagonals ur,dl,dl
+
+  * extend usbid match rule to bcd device
 
 * get rid of all std::cout stuff when using detached daemon, redirect
   log output to a file somewhere else: 
@@ -69,14 +142,20 @@ Stuff to do before 0.7.1 release:
   --verbose: print info level log output
   --debug:   print debug level log output
 
-* move XBOX_BTN_UNKNOWN behind XBOX_BTN_MAX, so iteration can start
-  from 0 instead of 1, also fix incorrect iterations all over the
-  place -> doesn't work as some code uses XBOX_BTN_UNKNOWN as 'no
-  button is pressed'
+
+Stuff to do before 0.7.3 release:
+=================================
 
-* improve output on which uinput devices are created (even with udev
-  there doesn't seem to be a bullet proof way to detect what gets
-  created)
+* turn EnumBox into singleton
+
+* allow EnumBox to have multiple names per values per key
+
+* allow --modifier help, --ui-buttonmap X2^help
+
+* move XBOX_BTN_UNKNOWN behind XBOX_BTN_MAX (or make it -1), so
+  iteration can start from 0 instead of 1, also fix incorrect
+  iterations all over the place -> doesn't work as some code uses
+  XBOX_BTN_UNKNOWN as 'no button is pressed'
 
 * document significant patches in AUTHORS
 
@@ -88,54 +167,20 @@ Stuff to do before 0.7.1 release:
       1     hal daemon from Thomas Debouverie <debouverie_thomas@yahoo.fr>
       1     Implemented --ui-buttonmap A=BTN_A@{device_id} ??!?!?
 
-* do modifier/filter dump when --verbose is given, make verbose
-  overall more useful
-
 * need to hide/disable the toggle button from the UIButtonmap
   - maybe implement some full post-parsing option verification to
     check for conflicts and necessary modifications?
   - Options::finish() to do final things?
 
-* print controller type/name in daemon (little tricky as that is only
-  known after opening the USB connection)
-
-* need magic to assign controller to a slot:
- 
-  what:  match product/vendor-id, match device name
-  where: match USB path, match /dev/input/??? path
-  when:  just assign them to the next free slot
-
-  --match RULE,...       # match any of the given rules
-  --match-group RULE,... # match all of the given rules
-
-  Rules:
-  ======
-  usbpath=005:003 (implicit vendor/product match)
-  usbid=045f:028f
-  evdev=/dev/input/event5
-  (no rules means it always matches)
-
-  1) search for match
-  2) if no match is found search slots without rules
-
-  * matching by usbpath makes very little sense, as the dev argument
-    gets incremented with each replug, bus alone might be usable
-  
-  * match again sysname could make sense, seems somewhat constant: "5-2"
-    Xbox1 controller results in "5-2.1", due to being really two devices
-
-* implement --on-connect and --on-disconnect for the daemon
-  - maybe have a more general event interface that allows to run stuff
-    on configuration changes, controller plug-ins, etc. (notifiy area as example)
-  - also supply useful information as argument
-
 
 Stuff to do before 0.7.x release:
 =================================
 
+* add Wiimote and PS3 bluetooth support 
+
 * -R, --rumble-test is broken for FirestormDualController (has no analog triggers)
 
-* add ABS support to macros (need to deal with min/max)
+* add ABS support to macros events (need to deal with min/max)
 
 * Playstation 3 controller support
   - http://www.pabr.org/sixlinux/sixlinux.en.html
@@ -179,18 +224,7 @@ Stuff to do before 0.7.x release:
   --ps3-pair 00:00:00:00:00:00
   --ps3-pair-with-bluetooth
 
-* allow named sections in INI files:
-
-  [controller1/modifier]
-  [controller1/config1/modifier]
-  [controller2/modifier]
-  [controller2/modifier]
-  [controller3/config1/modifier]
-  [controller3/config2/modifier]
-
 * get rid of set_button()/get_button(), turn the message objects into full classes
-
-* document common problems, such as lack of deadzone handling in games
 
 * make chatpad configurable:
 
@@ -220,18 +254,6 @@ Stuff to do before 0.7.x release:
 * add analog emulation for button (i.e. the longer its pressed, the higher the value)
 
 * write UIEvent::from_string()
-
-* --four-way-restrictor for the dpad?
-
-  - keep whatever direction is pressed first, don't allow walking over diagonals?
-  - always keep last main direction until another main direction got pressed?
-  - --disable-dpad-diagonals ur,dl,dl
-
-* absolute mouse pointer can be created with:
-
-  abs:1-ABS_X, abs:1-ABS_Y, key:1-BTN_LEFT
-
-  document that somewhere, device must not contain REL_X, REL_Y or BTN_A or it won't work in X11  
 
 * basic Dualstrike mouse emulation with absolute position:
 
@@ -264,8 +286,6 @@ http://www.x.org/docs/XKB/XKBlib.pdf
 
 http://www.mp3car.com/vbulletin/input-devices/108554-xbox360-chatpad-awsome-backlit-mini-keyboard-16.html#post1256444
 
-* find a way to bring back --no-extra-devices, saves typing
-
 * change default axis/button map depending on controller type (tricky as
   type is only really known after the axis/buttonmap as already been
   build):
@@ -275,52 +295,11 @@ http://www.mp3car.com/vbulletin/input-devices/108554-xbox360-chatpad-awsome-back
 * guitar handling was changed in a4e1003cba0ff925358ce5ed84d2bf9a728e93d6 
 
 * REL_ events could need acceleration support, as mouse emulation is currently kind of imprecise
-
-* write example ini configs (as documented source for user customization):
-
-  * default config
-
-  * two joysticks with one stick
- 
-  * all buttons and axis shifted by LB and RB
-
-  * evdev joystick to xbox360
-
-  * dosbox flightstick emulation
-
-  * high sensitivty
-
-  * mouse emulation
-
-* give some response curve examples:
-
-  # Low sensitivity on the stick when LB is pressed:
-
- --ui-axismap lb+y1^resp:-8000:0:8000=ABS_Y,y1=ABS_Y,lb+x1^resp:-8000:0:8000=ABS_X,x1=ABS_X
-
-* Not implementable as they need more then one axis: squareaxis, four-way-restrictor, dpad-rotation
-
-* support for Playstation button names maybe? cross, triangle, circle, square, R3, L3, ...?
-
 
 Stuff to do before 0.7.x release:
 =================================
 
-* "couldn't convert 'ABS_y' to enum, not a member of EV_ABS"
- 
-  convert all enum names to uppercase? or does that lead to conflicts in the naming?
-
 * add extra checks to make sure the evdev buttons and axis given exist on the current device
-
-* make dummy joystick axis creation optional
-
-* --ui-axismap LT=KEY_A:KEY_B:1 
-
-Here KEY_B is the key you want to send and KEY_A is a random other key
-that you don't need. It's a hack as mapping both to KEY_B seems to
-cause some trouble with automatic key repeat for some reason. Note
-that you must not combine this with --trigger-as-zaxis as that will
-disable LT and RT
 
 * invert y axis on --evdev
 
@@ -329,19 +308,6 @@ disable LT and RT
 * axis emulation
 
   --ui-axisemulation A:B=ABS_X:5
-
-* endpoints can be taken directly from the usb configuration, thus
-  avoiding issues with nummeric endpoints
-
-* bcdDevice (product release version) seem to indicate type (to many
-  possible versions, not enough data):
-
-new controller with merged endpoints: bcdDevice: 0x0114
-old ones: 1.10
-
-better way then to check for endpoints maybe
-
-* 045e:028f is the play&charge kit, give an error message when somebody tries to use that
 
 * match by protocol not, just vendor/product, from xpad.c:
 
@@ -359,44 +325,14 @@ better way then to check for endpoints maybe
         { XPAD_XBOX360_VENDOR_PROTOCOL(vend,1) }, \
         { XPAD_XBOX360_VENDOR_PROTOCOL(vend,129) }
 
-* --ui-new must reset events to neutral when switching input mapping (done, but a hack)
-
-* --ui-axismap doesn't work when same key name is given twice, either give warning or fix the issue:
-
   --ui-axismap LT=KEY_A:KEY_A:1
-
-* in INI files allow:
-
-  [xboxdrv]
-  ui-buttonmap = A=BTN_A,B=BTN_B,...
 
 Feature
 =======
 
 * figure out a way to make userspace force feedback driver not become dead processes
 
-* better keyboard emulation via analog sticks: axis must not be
-  handled separately as this leads to issues with the diagonals (see
-  mail from Matthew G <matt@remort.org>) (maybe relative axis can help?)
-
 * test TR:Anniversary with max effect 16
-
-Stuff to do before 0.6.0 release:
-=================================
-
-* add Playstation3 controller config to examples, convert to ini (done)
-  needs new config for bluetooth mode
-
- ./xboxdrv  \
-  --evdev /dev/input/event6 \
-  --evdev-absmap ABS_X=x1,ABS_Y=y1 \
-  --evdev-absmap ABS_Z=x2,ABS_RZ=y2 \
-  --evdev-absmap ABS_#48=lt,ABS_#49=rt \
-  --evdev-keymap BTN_THUMB=tl,BTN_THUMB2=tr \
-  --evdev-keymap BTN_BASE5=lb,BTN_BASE6=rb  \
-  --evdev-keymap KEY_#302=a,KEY_#301=b,BTN_DEAD=x,KEY_#300=y \
-  --evdev-keymap BTN_TRIGGER=back,KEY_#720=guide,BTN_TOP=start \
-  --evdev-keymap BTN_TOP2=du,BTN_PINKIE=dr,BTN_BASE=dd,BTN_BASE2=dl
 
 
 fixme:dinput:joy_polldev joystick cannot handle type 21 event (code 0) <- 21 == EV_FF (status report?) 
@@ -406,8 +342,6 @@ http://msdn.microsoft.com/en-us/library/bb219655(VS.85).aspx
 
 Later versions:
 ===============
-
-* complex macro programming, i.e. complete evdev sequences, not just key combinations
 
 * The World Tour wireless guitar have 5 buttons and a
   slide. Currently, the slide is mapped to the x axis, but I don't

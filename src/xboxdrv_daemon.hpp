@@ -22,6 +22,7 @@
 #include <libudev.h>
 
 #include "controller_slot_config.hpp"
+#include "controller_slot.hpp"
 
 class Options;
 class UInput;
@@ -31,60 +32,18 @@ struct XPadDevice;
 class XboxdrvDaemon
 {
 private:
+  const Options& m_opts;
   struct udev* m_udev;
   struct udev_monitor* m_monitor;
 
-  struct ControllerSlot
-  {
-    int id;
-    ControllerSlotConfigPtr config;
-    std::vector<ControllerMatchRule> rules;
-    XboxdrvThread* thread;
-    
-    ControllerSlot() :
-      id(),
-      config(),
-      rules(),
-      thread(0)
-    {}
-
-    ControllerSlot(int id_,
-                   ControllerSlotConfigPtr config_,
-                   std::vector<ControllerMatchRule> rules_,
-                   XboxdrvThread* thread_ = 0) :
-      id(id_),
-      config(config_),
-      rules(rules_),
-      thread(thread_)
-    {}
-
-    ControllerSlot(const ControllerSlot& rhs) :
-      id(rhs.id),
-      config(rhs.config),
-      rules(rhs.rules),
-      thread(rhs.thread)
-    {}
-
-    ControllerSlot& operator=(const ControllerSlot& rhs)
-    {
-      if (&rhs != this)
-      {
-        id     = rhs.id;
-        config = rhs.config;
-        rules  = rhs.rules;
-        thread = rhs.thread;
-      }
-      return *this;
-    }
-  };
-  
+ 
   typedef std::vector<ControllerSlot> ControllerSlots;
   ControllerSlots m_controller_slots;
 
   std::auto_ptr<UInput> m_uinput;
 
 public:
-  XboxdrvDaemon();
+  XboxdrvDaemon(const Options& opts);
   ~XboxdrvDaemon();
 
   void run(const Options& opts);
@@ -97,8 +56,7 @@ private:
 
   void run_loop(const Options& opts);
 
-  ControllerSlot* find_free_slot(uint16_t vendor, uint16_t product,
-                                 int bus, int dev) const;
+  ControllerSlot* find_free_slot(udev_device* dev);
 
   void cleanup_threads();
   void process_match(const Options& opts, struct udev_device* device);
@@ -108,6 +66,9 @@ private:
                       ControllerSlot& slot);
   int get_free_slot_count() const;
   
+  void on_connect(const ControllerSlot& slot);
+  void on_disconnect(const ControllerSlot& slot);
+
 private:
   XboxdrvDaemon(const XboxdrvDaemon&);
   XboxdrvDaemon& operator=(const XboxdrvDaemon&);
