@@ -21,14 +21,15 @@
 
 #include <stdint.h>
 
+#include <boost/function.hpp>
+
 struct XboxGenericMsg;
 
-class XboxGenericController
+class Controller
 {
-private:
 public:
-  XboxGenericController() {}
-  virtual ~XboxGenericController() {}
+  Controller() {}
+  virtual ~Controller() {}
 
   virtual void set_rumble(uint8_t left, uint8_t right) =0;
   virtual void set_led(uint8_t status)   =0;
@@ -39,9 +40,16 @@ public:
    */  
   virtual bool read(XboxGenericMsg& msg, int timeout) =0;
 
+  virtual bool is_active() const { return true; }
+  virtual void set_activation_cb(const boost::function<void ()> callback) {}
+
+  virtual std::string get_usbpath() const { return "-1:-1"; }
+  virtual std::string get_usbid() const   { return "-1:-1"; }
+  virtual std::string get_name() const    { return "<not implemented>"; }
+
 private:
-  XboxGenericController (const XboxGenericController&);
-  XboxGenericController& operator= (const XboxGenericController&);
+  Controller (const Controller&);
+  Controller& operator= (const Controller&);
 };
 
 #endif

@@ -21,13 +21,11 @@
 
 #include <libusb.h>
 
-#include "xbox_generic_controller.hpp"
+#include "usb_controller.hpp"
 
-class Playstation3USBController : public XboxGenericController
+class Playstation3USBController : public USBController
 {
 private:
-  libusb_device_handle* m_handle;
-
   int endpoint_in;
   int endpoint_out;
 

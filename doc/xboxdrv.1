@@ -5,7 +5,7 @@
 \\$2 \(la\\$1\(ra\\$3
 ..
 .if \n(.g .mso www.tmac
-.TH "xboxdrv " 1 2010-05-05 0.7.1 "User Commands"
+.TH "xboxdrv " 1 2010-05-05 0.7.2 "User Commands"
 .SH NAME
 xboxdrv
 \- A Xbox/Xbox360 gamepad driver that works in userspace 
@@ -72,6 +72,17 @@ data to the terminal can eat up quite a bit of CPU.
 .TP 
 \*(T<\fB\-\-quiet\fR\*(T>
 Do not display startup text and suppress most other output.
+.TP 
+\*(T<\fB\-\-priority\fR\*(T> \fIPRIORITY\fR
+Possible values for \fIPRIORITY\fR
+are "normal" and "realtime". Realtime scheduling gives
+the xboxdrv process heigher priority and thus allows it
+to function properly even when the machine is under
+load.
+
+Note that realtime priority requires running xboxdrv as
+root, when running xboxdrv as user there is no way to
+increase the priority.
 .SS "LIST OPTIONS"
 .TP 
 \*(T<\fB\-\-help\-led\fR\*(T>
@@ -233,6 +244,20 @@ if \*(T<\fB\-\-daemon\fR\*(T> is given.
 .TP 
 \*(T<\fB\-\-pid\-file\fR\*(T> \fIFILE\fR
 Write the xboxdrv daemon process id to FILE.
+.TP 
+\*(T<\fB\-\-on\-connect\fR\*(T> \fIEXE\fR
+Launches \fIEXE\fR
+when a controller gets connected. As arguments
+"\fIBUSDEV\fR:\fIDEVNUM\fR",
+"\fIidVendor\fR:\fIidProduct\fR",
+"\fINAME\fR are provided.
+.TP 
+\*(T<\fB\-\-on\-disconnect\fR\*(T> \fIEXE\fR
+Launches \fIEXE\fR
+when a controller gets disconnected. As arguments
+"\fIBUSDEV\fR:\fIDEVNUM\fR",
+"\fIidVendor\fR:\fIidProduct\fR",
+"\fINAME\fR are provided.
 .SS "DEVICE OPTIONS"
 .TP 
 \*(T<\fB\-L\fR\*(T>, \*(T<\fB\-\-list\-controller\fR\*(T>
@@ -625,7 +650,10 @@ not be switched at runtime.
 .TP 
 \*(T<\fB\-\-toggle\fR\*(T> \fIXBOXBTN\fR
 Sets the button that will be used to toggle between
-different different configurations.
+different different configurations. A value of 'void'
+will disable the toggle button. If no toggle button is
+specified, the guide button will be used to toggle
+between configurations.
 .SS "CONFIGURATION OPTIONS"
 .TP 
 \*(T<\fB\-\-modifier \fR\*(T>\fIMOD\fR
@@ -637,8 +665,8 @@ a full list of possible modifier.
 Specify the number of miliseconds that xboxdrv will wait
 for events from the controller before moving on and
 processing things like auto-fire or relative-axis.
-Default value is 25, smaller values will give you a
-higher resoultion auto fire, but will waste some more
+Default value is 10, smaller values will give you a
+higher resoultion auto fire and relative event movement, but will waste some more
 CPU.
 .TP 
 \*(T<\fB\-b, \-\-buttonmap BUTTON=BUTTON,...\fR\*(T>
@@ -740,7 +768,7 @@ their range is different.
 Just like with \*(T<\fB\-\-ui\-axismap\fR\*(T> you can add axis filter to each axis.
 .SS "MODIFIER PRESET CONFIGURATION OPTIONS"
 The options in this sections are sortcuts
-for \*(T<\fB\-\-modifier\fR\*(T>.
+for \*(T<\fB\-\-modifier\fR\*(T> options.
 Unlike \*(T<\fB\-\-modifier\fR\*(T> they are not order
 depended, but have a predefined order that is used no matter
 the order in which the options are given.
@@ -954,17 +982,55 @@ By default xboxdrv will allocate multiple uinput devices
 and sort events to each of them. Thus mouse related
 events like BTN_LEFT or REL_X will go to a virtual mouse
 device, while ABS_X events would go to a virtual
-joystick device. This option disables that automatism
-and all events will go to the same virtual device.
-Manual assignment to a specific device is still possible.
+joystick device and KEY_ESC would go to a virtual
+keyboard device.
+
+This option disables that automatism and all events will
+go to the same virtual device.
+
+Manual assignment to a specific device (i.e.
+KEY_ESC@keyboard, BTN_A@joystick, ...) is still possible.
 .TP 
-\*(T<\fB\-\-name NAME\fR\*(T>
+\*(T<\fB\-\-no\-extra\-events\fR\*(T>
+By default xboxdrv will allocate multiple uinput devices
+and sort events to each of them. Thus mouse related
+events like BTN_LEFT or REL_X will go to a virtual mouse
+device, while ABS_X events would go to a virtual
+joystick device and KEY_ESC would go to a virtual
+keyboard device.
+
+To make sure sure that a mouse, keyboard or joystick
+device is properly detected by Xorg, the kernel or
+libraries such SDL xboxdrv will insert extra dummy
+events. For example a mouse device needs REL_X and REL_Y
+events to be detected as such, but a configuration that
+only wants to emulate the mouse buttons won't provide
+those, thus xboxdrv will add them automatically.
+The \*(T<\fB\-\-no\-extra\-events\fR\*(T> option will
+switch this behaviour off.
+.TP 
+\*(T<\fB\-\-device\-name NAME\fR\*(T>
 Changes the descriptive name the device will have. This
 options acts the same as
---device-name \fICURRENTSLOT\fR.auto=\fINAME\fR
+--device-names \fICURRENTSLOT\fR.auto=\fINAME\fR
 .TP 
-\*(T<\fB\-\-device\-name TYPE.SLOT=NAME\fR\*(T>
+\*(T<\fB\-\-device\-names TYPE.SLOT=NAME,...\fR\*(T>
 Changes the descriptive name the device will
+have. \fITYPE\fR is one of mouse,
+keyboard, joystick, auto
+or a number. \fISLOT\fR is a slot
+number or auto.
+The auto name acts as wild card and
+matches everything.
+.TP 
+\*(T<\fB\-\-device\-usbid VENDOR:PRODUCT:VERSION:BUS\fR\*(T>
+Changes the vendor, product, version and bus id that the
+device will have. The last two arguments are optional.
+This options acts the same as
+--device-usbids \fICURRENTSLOT\fR.auto=\fIVENDOR:PRODUCT:VERSION:BUS\fR
+.TP 
+\*(T<\fB\-\-device\-usbids TYPE.SLOT=VENDOR:PRODUCT:VERSION:BUS,...\fR\*(T>
+Changes the vendor, product, version and bus id the device will
 have. \fITYPE\fR is one of mouse,
 keyboard, joystick, auto
 or a number. \fISLOT\fR is a slot
@@ -1315,6 +1381,16 @@ other, so order is important.
 \*(T<\fBdpad\-rotate\fR\*(T>=\fIDEGREE\fR
 See \*(T<\fB\-\-dpad\-rotation\fR\*(T>.
 .TP 
+\*(T<\fBdpad\-restrictor\fR\*(T>=\fIRESTRICTON\fR
+Restricts the dpad movement, values
+for \fIRESTRICTON\fR can be:
+
+x-axis: only allow movement in the X axis
+
+y-axis: only allow movement in the Y axis
+
+fourway: allow movement in X and Y axis, but filter out diagonals
+.TP 
 \*(T<\fB4wayrest\fR\*(T>, \*(T<\fBfour\-way\-restrictor\fR\*(T>=\fIXAXIS\fR:\fIYAXIS\fR
 See \*(T<\fB\-\-four\-way\-restrictor\fR\*(T>.
 .TP 
@@ -1323,6 +1399,19 @@ See \*(T<\fB\-\-square\-axis\fR\*(T>.
 .TP 
 \*(T<\fBrotate\fR\*(T>=\fIXAXIS\fR:\fIYAXIS\fR:\fIDEGREE\fR:\fIMIRROR\fR
 Rotates the stick given by \fIXAXIS\fR and \fIYAXIS\fR by \fIDEGREE\fR and optionally \fIMIRRORS\fR it.
+.TP 
+\*(T<\fBstat\fR\*(T>, \*(T<\fBstatistic\fR\*(T>
+The statistic modifier doesn't actually modify anything,
+instead it collects statistics on the controller, such
+as how many times a button has been pressed. The results
+of the collections will be displayed on shutdown of
+xboxdrv.
+
+Note that the stat modifier is part of the modifier
+stack, thus to get correct results you must make sure
+that it comes first in the stack when it should work on
+real events and not be confused by auto-fire or similar
+modifications.
 .SH "RUNNING XBOXDRV"
 .SS "USING A SINGLE CONTROLLER"
 Plug in your Xbox360 gamepad and then unload the xpad driver via:
@@ -1453,6 +1542,57 @@ it you can write its pid via the \*(T<\fB\-\-pid\-file\fR\*(T>:
 .nf
 \*(T<$ sudo xboxdrv \-\-daemon \-\-detach \-\-pid\-file /var/run/xboxdrv.pid\*(T>
 .fi
+.SH "XBOXDRV DAEMON DBUS INTERFACE"
+When Xboxdrv is run as daemon it will export some API functions
+via D-Bus, thus allowing to make configuration changes at
+runtime. The D-Bus interface can be accessed either by the
+numerous language bindings provided or via the generic command line tool
+\fBdbus-send\fR or by the more
+userfriendly \fBxboxdrvctl\fR tool. Examples below are
+given for the raw \fBdbus-send\fR.
+.PP
+Introspection is provided via the usual means:
+.PP
+.nf
+\*(T<dbus\-send \-\-session \-\-type=method_call \-\-print\-reply \e
+  \-\-dest=org.seul.Xboxdrv /org/seul/Xboxdrv org.freedesktop.DBus.Introspectable.Introspect
+
+dbus\-send \-\-session \-\-type=method_call \-\-print\-reply \e
+  \-\-dest=org.seul.Xboxdrv /org/seul/Xboxdrv/ControllerSlots/0 org.freedesktop.DBus.Introspectable.Introspect
+
+dbus\-send \-\-session \-\-type=method_call \-\-print\-reply \e
+  \-\-dest=org.seul.Xboxdrv /org/seul/Xboxdrv/Daemon org.freedesktop.DBus.Introspectable.Introspect\*(T>
+.fi
+.PP
+Status information on available slots, configuration and active controllers can be obtained via:
+.PP
+.nf
+\*(T<dbus\-send \e
+  \-\-session \-\-type=method_call \-\-print\-reply \e
+  \-\-dest=org.seul.Xboxdrv /org/seul/Xboxdrv/Daemon  org.seul.Xboxdrv.Daemon.Status\*(T>
+.fi
+.PP
+Setting the LED on controller 0 can be done via:
+.PP
+.nf
+\*(T<dbus\-send \-\-session \-\-type=method_call  \-\-print\-reply \e
+  \-\-dest=org.seul.Xboxdrv  /org/seul/Xboxdrv/ControllerSlots/0  org.seul.Xboxdrv.Controller.SetLed int32:4\*(T>
+.fi
+.PP
+Setting the rumble motors on controller 0 can be done via:
+.PP
+.nf
+\*(T<dbus\-send \-\-session \-\-type=method_call  \-\-print\-reply \e
+  \-\-dest=org.seul.Xboxdrv  /org/seul/Xboxdrv/ControllerSlots/0  org.seul.Xboxdrv.Controller.SetRumble int32:255 int32:255\*(T>
+.fi
+.PP
+Setting a specific controller slot configuration, just
+as \*(T<\fB\-\-toggle BTN\fR\*(T> allows, can be done with:
+.PP
+.nf
+\*(T<dbus\-send \-\-session \-\-type=method_call  \-\-print\-reply \e
+  \-\-dest=org.seul.Xboxdrv  /org/seul/Xboxdrv/ControllerSlots/0  org.seul.Xboxdrv.Controller.SetConfig int32:2\*(T>
+.fi
 .SH TESTING
 Knowing how to test a xboxdrv configuration is absolutely crucial in
 understanding what is wrong in a given setup. Testing the
@@ -1517,6 +1657,10 @@ If the tools provide no output at all, this might not be due to a
 wrong configuration, but due to Xorg grabbing your event device and
 locking it, see Xorg section for possible fixes.
 .SH EXAMPLES
+The configurations below are just a few random examples, further
+examples can be found in the \*(T<\fIexamples/\fR\*(T>
+directory of the xboxdrv source tree or
+in \*(T<\fI/usr/share/doc/xboxdrv/examples/\fR\*(T>.
 .SS "TURNING TRIGGERS INTO BUTTONS"
 By default xboxdrv will handle the trigger as analog axis, not
 buttons, while this is beneficial for racing games, it will
@@ -1953,6 +2097,7 @@ License GPLv3+: GNU GPL version 3 or later
 are free to change and redistribute it. There is NO WARRANTY,
 to the extent permitted by law.
 .SH "SEE ALSO"
+\fBxboxdrvctl\fR(1), 
 \fBevtest\fR(1), 
 \fBjstest\fR(1), 
 \fBjstest-gtk\fR(1), 

@@ -132,6 +132,25 @@
             </para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><option>--priority</option> <replaceable>PRIORITY</replaceable></term>
+          <listitem>
+            <para>
+              Possible values for <replaceable>PRIORITY</replaceable>
+              are "normal" and "realtime". Realtime scheduling gives
+              the xboxdrv process heigher priority and thus allows it
+              to function properly even when the machine is under
+              load.
+            </para>
+            <para>
+              Note that realtime priority requires running xboxdrv as
+              root, when running xboxdrv as user there is no way to
+              increase the priority.
+            </para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
     </refsect2>
 
@@ -1016,7 +1035,10 @@ start=KEY_ESC
           <listitem>
             <para>
               Sets the button that will be used to toggle between
-              different different configurations.
+              different different configurations. A value of 'void'
+              will disable the toggle button. If no toggle button is
+              specified, the guide button will be used to toggle
+              between configurations.
             </para>
           </listitem>
         </varlistentry>
@@ -1046,8 +1068,8 @@ start=KEY_ESC
               Specify the number of miliseconds that xboxdrv will wait
               for events from the controller before moving on and
               processing things like auto-fire or relative-axis.
-              Default value is 25, smaller values will give you a
-              higher resoultion auto fire, but will waste some more
+              Default value is 10, smaller values will give you a
+              higher resoultion auto fire and relative event movement, but will waste some more
               CPU.
             </para>
           </listitem>
@@ -1170,7 +1192,7 @@ start=KEY_ESC
       <title>Modifier Preset Configuration Options</title>
       <para>
         The options in this sections are sortcuts
-        for <option>--modifier</option>.
+        for <option>--modifier</option> options.
         Unlike <option>--modifier</option> they are not order
         depended, but have a predefined order that is used no matter
         the order in which the options are given.
@@ -1448,7 +1470,18 @@ pos = (1.0f - (1.0f - pos) ** t) ** (1 / t);]]></programlisting>
           <term><option>--mimic-xpad</option></term>
           <listitem>
             <para>
-              Causes xboxdrv to use the same axis and button names as the xpad kernel driver.
+              Causes xboxdrv to use the same axis and button names as
+              the xpad kernel driver for wired Xbox360 controller
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--mimic-xpad-wireless</option></term>
+          <listitem>
+            <para>
+              Causes xboxdrv to use the same axis and button names as
+              the xpad kernel driver for wired Xbox360 controller
             </para>
           </listitem>
         </varlistentry>
@@ -1516,21 +1549,48 @@ pos = (1.0f - (1.0f - pos) ** t) ** (1 / t);]]></programlisting>
         </varlistentry>
 
         <varlistentry>
-          <term><option>--name NAME</option></term>
+          <term><option>--device-name NAME</option></term>
           <listitem>
             <para>
               Changes the descriptive name the device will have. This
               options acts the same as
-              --device-name <replaceable>CURRENTSLOT</replaceable>.auto=<replaceable>NAME</replaceable>
+              --device-names <replaceable>CURRENTSLOT</replaceable>.auto=<replaceable>NAME</replaceable>
             </para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>--device-name TYPE.SLOT=NAME</option></term>
+          <term><option>--device-names TYPE.SLOT=NAME,...</option></term>
           <listitem>
             <para>
               Changes the descriptive name the device will
+              have. <replaceable>TYPE</replaceable> is one of <constant>mouse</constant>,
+              <constant>keyboard</constant>, <constant>joystick</constant>, <constant>auto</constant>
+              or a number. <replaceable>SLOT</replaceable> is a slot
+              number or <constant>auto</constant>.
+              The <constant>auto</constant> name acts as wild card and
+              matches everything.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--device-usbid VENDOR:PRODUCT:VERSION:BUS</option></term>
+          <listitem>
+            <para>
+              Changes the vendor, product, version and bus id that the
+              device will have. The last two arguments are optional.
+              This options acts the same as
+              --device-usbids <replaceable>CURRENTSLOT</replaceable>.auto=<replaceable>VENDOR:PRODUCT:VERSION:BUS</replaceable>
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--device-usbids TYPE.SLOT=VENDOR:PRODUCT:VERSION:BUS,...</option></term>
+          <listitem>
+            <para>
+              Changes the vendor, product, version and bus id the device will
               have. <replaceable>TYPE</replaceable> is one of <constant>mouse</constant>,
               <constant>keyboard</constant>, <constant>joystick</constant>, <constant>auto</constant>
               or a number. <replaceable>SLOT</replaceable> is a slot
@@ -1983,6 +2043,19 @@ NAME       = STRING ;]]></programlisting>
         </varlistentry>
 
         <varlistentry>
+          <term><option>dpad-restrictor</option>=<replaceable>RESTRICTON</replaceable></term>
+          <listitem>
+            <para>
+              Restricts the dpad movement, values
+              for <replaceable>RESTRICTON</replaceable> can be:
+            </para>
+            <para>x-axis: only allow movement in the X axis</para>
+            <para>y-axis: only allow movement in the Y axis</para>
+            <para>fourway: allow movement in X and Y axis, but filter out diagonals</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>4wayrest</option>, <option>four-way-restrictor</option>=<replaceable>XAXIS</replaceable>:<replaceable>YAXIS</replaceable></term>
           <listitem>
             <para>
@@ -2005,6 +2078,26 @@ NAME       = STRING ;]]></programlisting>
           <listitem>
             <para>
               Rotates the stick given by <replaceable>XAXIS</replaceable> and <replaceable>YAXIS</replaceable> by <replaceable>DEGREE</replaceable> and optionally <replaceable>MIRRORS</replaceable> it.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>stat</option>, <option>statistic</option></term>
+          <listitem>
+            <para>
+              The statistic modifier doesn't actually modify anything,
+              instead it collects statistics on the controller, such
+              as how many times a button has been pressed. The results
+              of the collections will be displayed on shutdown of
+              xboxdrv.
+            </para>
+            <para>
+              Note that the stat modifier is part of the modifier
+              stack, thus to get correct results you must make sure
+              that it comes first in the stack when it should work on
+              real events and not be confused by auto-fire or similar
+              modifications.
             </para>
           </listitem>
         </varlistentry>
@@ -2159,6 +2252,56 @@ $ modprobe joydev]]></programlisting>
   </refsect1>
 
   <refsect1>
+    <title>Xboxdrv Daemon Dbus Interface</title>
+    <para>
+      When Xboxdrv is run as daemon it will export some API functions
+      via D-Bus, thus allowing to make configuration changes at
+      runtime. The D-Bus interface can be accessed either by the
+      numerous language bindings provided or via the generic command line tool
+      <command>dbus-send</command> or by the more
+      userfriendly <command>xboxdrvctl</command> tool. Examples below are
+      given for the raw <command>dbus-send</command>.
+    </para>
+    <para>
+      Introspection is provided via the usual means:
+    </para>
+    <programlisting><![CDATA[dbus-send --session --type=method_call --print-reply \
+  --dest=org.seul.Xboxdrv /org/seul/Xboxdrv org.freedesktop.DBus.Introspectable.Introspect
+
+dbus-send --session --type=method_call --print-reply \
+  --dest=org.seul.Xboxdrv /org/seul/Xboxdrv/ControllerSlots/0 org.freedesktop.DBus.Introspectable.Introspect
+
+dbus-send --session --type=method_call --print-reply \
+  --dest=org.seul.Xboxdrv /org/seul/Xboxdrv/Daemon org.freedesktop.DBus.Introspectable.Introspect]]></programlisting>
+    
+    <para>
+      Status information on available slots, configuration and active controllers can be obtained via:
+    </para>
+    <programlisting><![CDATA[dbus-send \
+  --session --type=method_call --print-reply \
+  --dest=org.seul.Xboxdrv /org/seul/Xboxdrv/Daemon  org.seul.Xboxdrv.Daemon.Status]]></programlisting>
+
+    <para>
+      Setting the LED on controller 0 can be done via:
+    </para>
+    <programlisting><![CDATA[dbus-send --session --type=method_call  --print-reply \
+  --dest=org.seul.Xboxdrv  /org/seul/Xboxdrv/ControllerSlots/0  org.seul.Xboxdrv.Controller.SetLed int32:4]]></programlisting>
+
+    <para>
+      Setting the rumble motors on controller 0 can be done via:
+    </para>
+    <programlisting><![CDATA[dbus-send --session --type=method_call  --print-reply \
+  --dest=org.seul.Xboxdrv  /org/seul/Xboxdrv/ControllerSlots/0  org.seul.Xboxdrv.Controller.SetRumble int32:255 int32:255]]></programlisting>
+
+    <para>
+      Setting a specific controller slot configuration, just
+      as <option>--toggle BTN</option> allows, can be done with:
+    </para>
+    <programlisting><![CDATA[dbus-send --session --type=method_call  --print-reply \
+  --dest=org.seul.Xboxdrv  /org/seul/Xboxdrv/ControllerSlots/0  org.seul.Xboxdrv.Controller.SetConfig int32:2]]></programlisting>
+  </refsect1>
+
+  <refsect1>
     <title>Testing</title>
     <para>
       Knowing how to test a xboxdrv configuration is absolutely crucial in
@@ -2269,6 +2412,12 @@ $ modprobe joydev]]></programlisting>
 
   <refsect1>
     <title>Examples</title>
+    <para>
+      The configurations below are just a few random examples, further
+      examples can be found in the <filename>examples/</filename>
+      directory of the xboxdrv source tree or
+      in <filename>/usr/share/doc/xboxdrv/examples/</filename>.
+    </para>
 
     <refsect2>
       <title>Turning triggers into buttons</title>
@@ -2854,6 +3003,10 @@ EndSection]]></programlisting>
   <refsect1>
     <title>See also</title>
     <para>
+      <citerefentry>
+        <refentrytitle>xboxdrvctl</refentrytitle>
+        <manvolnum>1</manvolnum>
+      </citerefentry>, 
       <citerefentry>
         <refentrytitle>evtest</refentrytitle>
         <manvolnum>1</manvolnum>
