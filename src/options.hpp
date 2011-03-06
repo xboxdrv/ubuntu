@@ -22,6 +22,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <linux/input.h>
 
 #include "controller_options.hpp"
 #include "controller_slot_options.hpp"
@@ -54,6 +55,11 @@ public:
     LIST_BUTTON    = (1<<5)
   };
 
+  enum Priority {
+    kPriorityNormal,
+    kPriorityRealtime
+  };
+
   // General program options
   bool silent;
   bool quiet;
@@ -67,6 +73,7 @@ public:
   bool no_uinput;
   bool detach_kernel_driver;
   int  timeout;
+  Priority priority;
 
   GamepadType gamepad_type;
   
@@ -109,6 +116,7 @@ public:
   uint32_t list_enums;
 
   XboxButton config_toggle_button;
+  bool config_toggle_button_is_set;
 
   int controller_slot;
   int config_slot;
@@ -117,6 +125,7 @@ public:
   bool extra_events;
 
   std::map<uint32_t, std::string> uinput_device_names;
+  std::map<uint32_t, struct input_id> uinput_device_usbids;
 
   bool usb_debug;
 
@@ -130,6 +139,8 @@ public:
   ControllerOptions& get_controller_options();
   const ControllerOptions& get_controller_options() const;
 
+  void set_priority(const std::string& value);
+
   void set_ui_clear();
 
   void next_controller();
@@ -142,6 +153,8 @@ public:
 
   void set_led(const std::string& value);
   void set_device_name(const std::string& name);
+  void set_device_usbid(const std::string& name);
+  void set_toggle_button(const std::string& toggle);
   void set_mouse();
   void set_guitar();
   void set_trigger_as_button();
@@ -150,6 +163,7 @@ public:
   void set_dpad_only();
   void set_force_feedback(const std::string& value);
   void set_mimic_xpad();
+  void set_mimic_xpad_wireless();
 
   void set_daemon();
   void set_daemon_detach(bool value);

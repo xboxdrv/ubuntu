@@ -26,43 +26,29 @@
 #include "usb_helper.hpp"
 #include "xboxmsg.hpp"
 
-Xbox360WirelessController::Xbox360WirelessController(libusb_device* dev_, int controller_id, 
+Xbox360WirelessController::Xbox360WirelessController(libusb_device* dev, int controller_id, 
                                                      bool try_detach) :
-  dev(dev_),
-  handle(),
-  endpoint(),
-  interface(),
-  battery_status(),
-  serial(),
-  led_status(0)
+  USBController(dev),
+  m_active(false),
+  m_endpoint(),
+  m_interface(),
+  m_battery_status(),
+  m_serial(),
+  m_led_status(0),
+  m_activation_cb()
 {
   assert(controller_id >= 0 && controller_id < 4);
   
   // FIXME: Is hardcoding those ok?
-  endpoint  = controller_id*2 + 1;
-  interface = controller_id*2;
+  m_endpoint  = controller_id*2 + 1;
+  m_interface = controller_id*2;
 
-  const int ret = libusb_open(dev, &handle);
-  if (ret != LIBUSB_SUCCESS)
-  {
-    raise_exception(std::runtime_error, "libusb_open() failed: " << usb_strerror(ret));
-  }
-  else
-  {
-    int err = usb_claim_n_detach_interface(handle, interface, try_detach);
-    if (err != 0) 
-    {
-      raise_exception(std::runtime_error,
-                      "Error couldn't claim the USB interface: " << usb_strerror(err) << std::endl <<
-                      "Try to run 'rmmod xpad' and then xboxdrv again or start xboxdrv with the option --detach-kernel-driver.");
-    }
-  }
+  claim_interface(m_interface, try_detach);
 }
 
 Xbox360WirelessController::~Xbox360WirelessController()
 {
-  libusb_release_interface(handle, interface); 
-  libusb_close(handle);
+  release_interface(m_interface);
 }
 
 void
@@ -72,7 +58,7 @@ Xbox360WirelessController::set_rumble(uint8_t left, uint8_t right)
   //                                       v
   uint8_t rumblecmd[] = { 0x00, 0x01, 0x0f, 0xc0, 0x00, left, right, 0x00, 0x00, 0x00, 0x00, 0x00 };
   int transferred = 0;
-  int ret = libusb_interrupt_transfer(handle, LIBUSB_ENDPOINT_OUT | endpoint,
+  int ret = libusb_interrupt_transfer(m_handle, LIBUSB_ENDPOINT_OUT | m_endpoint,
                                       rumblecmd, sizeof(rumblecmd), &transferred, 0);
   if (ret != LIBUSB_SUCCESS)
   {
@@ -83,12 +69,12 @@ Xbox360WirelessController::set_rumble(uint8_t left, uint8_t right)
 void
 Xbox360WirelessController::set_led(uint8_t status)
 {
-  led_status = status;
+  m_led_status = status;
   //                                +--- Why not just status?
   //                                v
   uint8_t ledcmd[] = { 0x00, 0x00, 0x08, 0x40 + (status % 0x0e), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
   int transferred = 0;
-  int ret = libusb_interrupt_transfer(handle, LIBUSB_ENDPOINT_OUT | endpoint, 
+  int ret = libusb_interrupt_transfer(m_handle, LIBUSB_ENDPOINT_OUT | m_endpoint, 
                                 ledcmd, sizeof(ledcmd), &transferred, 0);
   if (ret != LIBUSB_SUCCESS)
   {
@@ -102,7 +88,7 @@ Xbox360WirelessController::read(XboxGenericMsg& msg, int timeout)
   uint8_t data[32];
   int len = 0;
  
-  int ret = libusb_interrupt_transfer(handle, LIBUSB_ENDPOINT_IN | endpoint, 
+  int ret = libusb_interrupt_transfer(m_handle, LIBUSB_ENDPOINT_IN | m_endpoint, 
                                       data, sizeof(data), 
                                       &len, timeout);
 
@@ -112,82 +98,106 @@ Xbox360WirelessController::read(XboxGenericMsg& msg, int timeout)
   }
   else  if (ret != LIBUSB_SUCCESS)
   { // Error
-    std::ostringstream str;
-    str << "USBError: " << ret << "\n" << usb_strerror(ret);
-    throw std::runtime_error(str.str());
+    raise_exception(std::runtime_error, "libusb_interrupt_transfer() failed: " << usb_strerror(ret));
   }
-  else if (len == 2 && data[0] == 0x08) 
-  { // Connection Status Message
-    if (data[1] == 0x00) 
-    {
-      log_info("connection status: nothing");
-    } 
-    else if (data[1] == 0x80) 
-    {
-      log_info("connection status: controller connected");
-      set_led(led_status);
-    } 
-    else if (data[1] == 0x40) 
-    {
-      log_info("Connection status: headset connected");
-    }
-    else if (data[1] == 0xc0) 
-    {
-      log_info("Connection status: controller and headset connected");
-      set_led(led_status);
-    }
-    else
-    {
-      log_info("Connection status: unknown");
-    }
-  }
-  else if (len == 29)
+  else
   {
-    if (data[0] == 0x00 && data[1] == 0x0f && data[2] == 0x00 && data[3] == 0xf0)
-    { // Initial Announc Message
-      serial = (boost::format("%2x:%2x:%2x:%2x:%2x:%2x:%2x")
-                % int(data[7])
-                % int(data[8])
-                % int(data[9])
-                % int(data[10])
-                % int(data[11])
-                % int(data[12])
-                % int(data[13])).str();
-      battery_status = data[17];
-      log_info("Serial: " << serial);
-      log_info("Battery Status: " << battery_status);
-    }
-    else if (data[0] == 0x00 && data[1] == 0x01 && data[2] == 0x00 && data[3] == 0xf0 && data[4] == 0x00 && data[5] == 0x13)
-    { // Event message
-      msg.type    = XBOX_MSG_XBOX360;
-      memcpy(&msg.xbox360, data+4, sizeof(Xbox360Msg));
-      return true;
-    }
-    else if (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0x13)
-    { // Battery status
-      battery_status = data[4];
-      log_info("battery status: " << battery_status);
-    }
-    else if (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0xf0)
+    if (len == 0)
     {
-      // 0x00 0x00 0x00 0xf0 0x00 ... is send after each button
-      // press, doesn't seem to contain any information
+      // ignore
+    }
+    else if (len == 2 && data[0] == 0x08) 
+    { // Connection Status Message
+      if (data[1] == 0x00) 
+      {
+        log_info("connection status: nothing");
+        set_active(false);
+      } 
+      else if (data[1] == 0x80) 
+      {
+        log_info("connection status: controller connected");
+        set_led(m_led_status);
+        set_active(true);
+      } 
+      else if (data[1] == 0x40) 
+      {
+        log_info("Connection status: headset connected");
+      }
+      else if (data[1] == 0xc0) 
+      {
+        log_info("Connection status: controller and headset connected");
+        set_led(m_led_status);
+      }
+      else
+      {
+        log_info("Connection status: unknown");
+      }
+    }
+    else if (len == 29)
+    {
+      set_active(true);
+
+      if (data[0] == 0x00 && data[1] == 0x0f && data[2] == 0x00 && data[3] == 0xf0)
+      { // Initial Announc Message
+        m_serial = (boost::format("%2x:%2x:%2x:%2x:%2x:%2x:%2x")
+                  % int(data[7])
+                  % int(data[8])
+                  % int(data[9])
+                  % int(data[10])
+                  % int(data[11])
+                  % int(data[12])
+                  % int(data[13])).str();
+        m_battery_status = data[17];
+        log_info("Serial: " << m_serial);
+        log_info("Battery Status: " << m_battery_status);
+      }
+      else if (data[0] == 0x00 && data[1] == 0x01 && data[2] == 0x00 && data[3] == 0xf0 && data[4] == 0x00 && data[5] == 0x13)
+      { // Event message
+        msg.type    = XBOX_MSG_XBOX360;
+        memcpy(&msg.xbox360, data+4, sizeof(Xbox360Msg));
+        return true;
+      }
+      else if (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0x13)
+      { // Battery status
+        m_battery_status = data[4];
+        log_info("battery status: " << m_battery_status);
+      }
+      else if (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0xf0)
+      {
+        // 0x00 0x00 0x00 0xf0 0x00 ... is send after each button
+        // press, doesn't seem to contain any information
+      }
+      else
+      {
+        log_debug("unknown: " << raw2str(data, len));
+      }
     }
     else
     {
       log_debug("unknown: " << raw2str(data, len));
     }
   }
-  else if (len == 0)
-  {
-    // ignore
-  }
-  else
-  {
-    log_debug("unknown: " << raw2str(data, len));
-  }
 
   return false;
+}
+
+void
+Xbox360WirelessController::set_active(bool v)
+{
+  if (m_active != v)
+  {
+    m_active = v;
+    if (m_activation_cb)
+    {
+      m_activation_cb();
+    }
+  }
+}
+
+void
+Xbox360WirelessController::set_activation_cb(const boost::function<void ()> callback)
+{
+  m_activation_cb = callback;
 }
 
 /* EOF */

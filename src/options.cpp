@@ -40,7 +40,8 @@ Options::Options() :
   instant_exit(false),
   no_uinput(false),
   detach_kernel_driver(),
-  timeout(25),
+  timeout(10),
+  priority(kPriorityNormal),
   gamepad_type(GAMEPAD_UNKNOWN),
   busid(),
   devid(),
@@ -66,11 +67,13 @@ Options::Options() :
   exec(),
   list_enums(0),
   config_toggle_button(XBOX_BTN_UNKNOWN),
+  config_toggle_button_is_set(false),
   controller_slot(0),
   config_slot(0),
   extra_devices(true),
   extra_events(true),
   uinput_device_names(),
+  uinput_device_usbids(),
   usb_debug(false)
 {
   // create the entry if not already available
@@ -126,6 +129,23 @@ Options::get_controller_options() const
 }
 
 void
+Options::set_priority(const std::string& value)
+{
+  if (value == "realtime")
+  {
+    priority = kPriorityRealtime;
+  }
+  else if (value == "normal")
+  {
+    priority = kPriorityNormal;
+  }
+  else
+  {
+    raise_exception(std::runtime_error, "unknown priority value: '" << value << "'");
+  }
+}
+
+void
 Options::set_ui_clear()
 {
   get_controller_options().uinput.get_axis_map().clear();
@@ -146,12 +166,6 @@ void
 Options::next_config()
 {
   config_slot += 1;
-
-  // FIXME: move this somewhere else
-  if (config_toggle_button == XBOX_BTN_UNKNOWN)
-  {
-    config_toggle_button = XBOX_BTN_GUIDE;
-  }
 
   // create the entry if not already available
   controller_slots[controller_slot].get_options(config_slot);
@@ -186,6 +200,28 @@ Options::set_device_name(const std::string& name)
 {
   uint32_t device_id = UInput::create_device_id(controller_slot, DEVICEID_AUTO);
   uinput_device_names[device_id] = name;
+}
+
+void
+Options::set_device_usbid(const std::string& name)
+{
+  uint32_t device_id = UInput::create_device_id(controller_slot, DEVICEID_AUTO);
+  uinput_device_usbids[device_id] = UInput::parse_input_id(name);
+}
+
+void
+Options::set_toggle_button(const std::string& str)
+{
+  if (str == "void")
+  {
+    config_toggle_button = XBOX_BTN_UNKNOWN;
+    config_toggle_button_is_set = true;
+  }
+  else
+  {
+    config_toggle_button = string2btn(str);
+    config_toggle_button_is_set = true;
+  }
 }
 
 void
@@ -239,7 +275,21 @@ Options::set_mimic_xpad()
   extra_events  = false;
 
   set_device_name("Microsoft X-Box 360 pad");
+  set_device_usbid("045e:028e:110");
   get_controller_options().uinput.mimic_xpad();
+}
+
+void
+Options::set_mimic_xpad_wireless()
+{
+  // BTN_BACK is recognized as mouse button, so we have to disallow
+  // automatic allocation
+  extra_devices = false;
+  extra_events  = false;
+
+  set_device_name("Xbox 360 Wireless Receiver");
+  set_device_usbid("045e:0719:100");
+  get_controller_options().uinput.mimic_xpad_wireless();
 }
 
 void
@@ -292,7 +342,13 @@ Options::set_match_group(const std::string& str)
 void
 Options::finish()
 {
-  // FIXME: add some checks for conflicting options here
+  // if we have multiple configurations and the toggle button isn't
+  // set, set it to the guide button
+  if (!config_toggle_button_is_set && 
+      controller_slots[controller_slot].get_options().size() > 1)
+  {
+    config_toggle_button = XBOX_BTN_GUIDE;
+  }
 }
 
 /* EOF */

@@ -21,14 +21,11 @@
 
 #include <libusb.h>
 #include "xboxmsg.hpp"
-#include "xbox_generic_controller.hpp"
+#include "usb_controller.hpp"
 
-class SaitekP2500Controller : public XboxGenericController
+class SaitekP2500Controller : public USBController
 {
-private:
-  libusb_device* dev;
-  libusb_device_handle* handle;
-  
+private: 
   int left_rumble;
   int right_rumble;
 

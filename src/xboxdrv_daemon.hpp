@@ -20,27 +20,38 @@
 #define HEADER_XBOXDRV_XBOXDRV_DAEMON_HPP
 
 #include <libudev.h>
+#include <glib.h>
+#include <dbus/dbus-glib.h>
 
 #include "controller_slot_config.hpp"
 #include "controller_slot.hpp"
 
 class Options;
 class UInput;
-class XboxdrvThread;
+class ControllerThread;
 struct XPadDevice;
 
 class XboxdrvDaemon
 {
 private:
+  static XboxdrvDaemon* s_current;
+
   const Options& m_opts;
   struct udev* m_udev;
   struct udev_monitor* m_monitor;
-
  
-  typedef std::vector<ControllerSlot> ControllerSlots;
+  typedef std::vector<ControllerSlotPtr> ControllerSlots;
   ControllerSlots m_controller_slots;
+  
+  typedef std::vector<ControllerThreadPtr> Threads;
+  Threads m_inactive_threads;
 
   std::auto_ptr<UInput> m_uinput;
+  GMainLoop* m_gmain;
+
+private:
+  static void on_sigint(int);
+  static XboxdrvDaemon* current() { return s_current; }
 
 public:
   XboxdrvDaemon(const Options& opts);
@@ -48,26 +59,46 @@ public:
 
   void run(const Options& opts);
 
+  std::string status();
+  void shutdown();
+
 private:
   void create_pid_file(const Options& opts);
   void init_uinput(const Options& opts);
   void init_udev();
   void init_udev_monitor(const Options& opts);
 
-  void run_loop(const Options& opts);
+  void init_g_udev();
+  void init_g_dbus();
 
-  ControllerSlot* find_free_slot(udev_device* dev);
+  std::vector<ControllerSlotPtr> find_compatible_slots(udev_device* dev);
+  ControllerSlotPtr find_free_slot(udev_device* dev);
+  ControllerSlotPtr find_free_slot(ControllerThreadPtr thread);
 
+  void enumerate_udev_devices(const Options& opts);
   void cleanup_threads();
   void process_match(const Options& opts, struct udev_device* device);
   void print_info(struct udev_device* device);
-  void launch_xboxdrv(const XPadDevice& dev_type, const Options& opts, 
-                      uint8_t busnum, uint8_t devnum,
-                      ControllerSlot& slot);
+  void launch_controller_thread(udev_device* dev,
+                                const XPadDevice& dev_type, const Options& opts, 
+                                uint8_t busnum, uint8_t devnum);
   int get_free_slot_count() const;
+  void check_thread_status();
   
-  void on_connect(const ControllerSlot& slot);
-  void on_disconnect(const ControllerSlot& slot);
+  void connect(ControllerSlotPtr slot, ControllerThreadPtr thread);
+  ControllerThreadPtr disconnect(ControllerSlotPtr slot);
+
+  void on_connect(ControllerSlotPtr slot);
+  void on_disconnect(ControllerSlotPtr slot);
+
+  void wakeup();
+
+  bool on_wakeup();
+  bool on_udev_data(GIOChannel* channel, GIOCondition condition);
+
+private:
+  static gboolean on_udev_data_wrap(GIOChannel* channel, GIOCondition condition, gpointer data);
+  static gboolean on_wakeup_wrap(gpointer data);
 
 private:
   XboxdrvDaemon(const XboxdrvDaemon&);

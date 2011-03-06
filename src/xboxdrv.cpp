@@ -34,13 +34,12 @@
 #include "uinput_message_processor.hpp"
 #include "usb_helper.hpp"
 #include "word_wrap.hpp"
-#include "xbox_controller_factory.hpp"
+#include "controller_factory.hpp"
 #include "xboxdrv_daemon.hpp"
-#include "xboxdrv_thread.hpp"
+#include "controller_thread.hpp"
 
 // Some ugly global variables, needed for sigint catching
 bool global_exit_xboxdrv = false;
-XboxGenericController* global_controller = 0;
 
 void on_sigint(int)
 {
@@ -128,7 +127,7 @@ Xboxdrv::run_list_controller()
   }
 
   if (id == 0)
-    std::cout << "\nNo controller detected" << std::endl; 
+    std::cout << "\nno controller detected" << std::endl; 
 
   libusb_free_device_list(list, 1 /* unref_devices */);
 }
@@ -298,9 +297,7 @@ Xboxdrv::find_controller(libusb_device** dev,
     {
       if (!find_controller_by_path(opts.busid, opts.devid, dev))
       {
-        std::ostringstream out;
-        out << "couldn't find device " << opts.busid << ":" << opts.devid;
-        throw std::runtime_error(out.str());
+        raise_exception(std::runtime_error, "couldn't find device " << opts.busid << ":" << opts.devid);
       }
       else
       {
@@ -325,10 +322,8 @@ Xboxdrv::find_controller(libusb_device** dev,
     {
       if (!find_controller_by_id(opts.controller_id, opts.vendor_id, opts.product_id, dev))
       {
-        std::ostringstream out;
-        out << "Error: couldn't find device with " 
-            << (boost::format("%04x:%04x") % opts.vendor_id % opts.product_id);
-        throw std::runtime_error(out.str());
+        raise_exception(std::runtime_error, "couldn't find device with " 
+                        << (boost::format("%04x:%04x") % opts.vendor_id % opts.product_id));
       }
       else
       {
@@ -369,19 +364,19 @@ Xboxdrv::run_main(const Options& opts)
     print_copyright();
   }
 
-  std::auto_ptr<XboxGenericController> controller;
+  ControllerPtr controller;
 
   XPadDevice dev_type;
 
   if (!opts.evdev_device.empty())
   { // normal PC joystick via evdev
-    controller = std::auto_ptr<XboxGenericController>(new EvdevController(opts.evdev_device, 
-                                                                          opts.evdev_absmap, 
-                                                                          opts.evdev_keymap,
-                                                                          opts.evdev_grab,
-                                                                          opts.evdev_debug));
+    controller = ControllerPtr(new EvdevController(opts.evdev_device, 
+                                                   opts.evdev_absmap, 
+                                                   opts.evdev_keymap,
+                                                   opts.evdev_grab,
+                                                   opts.evdev_debug));
 
-    // FIXME: ugly, should be part of XboxGenericController
+    // FIXME: ugly, should be part of Controller
     dev_type.type = GAMEPAD_XBOX360;
     dev_type.idVendor  = 0;
     dev_type.idProduct = 0;
@@ -407,18 +402,16 @@ Xboxdrv::run_main(const Options& opts)
 
     if (!dev)
     {
-      throw std::runtime_error("No suitable USB device found, abort");
+      throw std::runtime_error("no suitable USB device found, abort");
     }
     else 
     {
       if (!opts.quiet)
         print_info(dev, dev_type, opts);
 
-      controller = XboxControllerFactory::create(dev_type, dev, opts);
+      controller = ControllerFactory::create(dev_type, dev, opts);
     }
   }
-
-  global_controller = controller.get();
 
   int jsdev_number = find_jsdev_number();
   int evdev_number = find_evdev_number();
@@ -449,6 +442,7 @@ Xboxdrv::run_main(const Options& opts)
         std::cout << "Starting with uinput" << std::endl;
       uinput = std::auto_ptr<UInput>(new UInput(opts.extra_events));
       uinput->set_device_names(opts.uinput_device_names);
+      uinput->set_device_usbids(opts.uinput_device_usbids);
     }
     else
     {
@@ -492,8 +486,9 @@ Xboxdrv::run_main(const Options& opts)
       message_proc.reset(new DummyMessageProcessor);
     }
 
-    XboxdrvThread loop(message_proc, controller, opts);
-    loop.controller_loop(opts);
+    ControllerThread thread(controller, opts);
+    thread.set_message_proc(message_proc);
+    thread.controller_loop(opts);
           
     if (!opts.quiet) 
       std::cout << "Shutdown complete" << std::endl;
@@ -619,9 +614,7 @@ Xboxdrv::run_daemon(const Options& opts)
 
     if (pid < 0) 
     { // fork error
-      std::ostringstream out;
-      out << "Xboxdrv::run_daemon(): failed to fork(): " << strerror(errno);
-      throw std::runtime_error(out.str());
+      raise_exception(std::runtime_error, "failed to fork(): " << strerror(errno));
     }
     else if (pid > 0) 
     { // parent, just exit
@@ -633,17 +626,13 @@ Xboxdrv::run_daemon(const Options& opts)
 
       if (sid == static_cast<pid_t>(-1))
       {
-        std::ostringstream out;
-        out << "Xboxdrv::run_daemon(): failed to setsid(): " << strerror(errno);
-        throw std::runtime_error(out.str());
+        raise_exception(std::runtime_error, "failed to setsid(): " << strerror(errno));
       }
       else
       {
         if (chdir("/") != 0)
         {
-          std::ostringstream out;
-          out << "Xboxdrv::run_daemon(): failed to chdir(\"/\"): " << strerror(errno);
-          throw std::runtime_error(out.str());
+          raise_exception(std::runtime_error, "failed to chdir(\"/\"): " << strerror(errno));
         }
         else
         {
@@ -795,12 +784,6 @@ Xboxdrv::main(int argc, char** argv)
   }
 
   return 0;
-}
-
-int main(int argc, char** argv)
-{
-  Xboxdrv xboxdrv;
-  return xboxdrv.main(argc, argv);
 }
 
 /* EOF */
