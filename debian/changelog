@@ -1,3 +1,9 @@
+xboxdrv (0.7.2-1) maverick; urgency=low
+
+  * xboxdrv 0.7.2 release
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Sun, 06 Mar 2011 12:58:11 +0100
+
 xboxdrv (0.7.1-1) maverick; urgency=low
 
   * xboxdrv 0.7.1 release
