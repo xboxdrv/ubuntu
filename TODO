@@ -22,42 +22,183 @@ add libudev, libusb-1.0 to builddependencies
 
 $ cd ../debian/
 $ git checkout master
-$ git-import-orig -u 0.7.1 ~/projects/xboxdrv/htdocs/xboxdrv-linux-0.7.1.tar.bz2 
-$ dch -v "0.7.1-1" "xboxdrv 0.7.1 release"
+$ git-import-orig -u 0.7.2 ~/projects/xboxdrv/htdocs/xboxdrv-linux-0.7.2.tar.bz2 
+$ dch -v "0.7.2-1" "xboxdrv 0.7.2 release"
 $ git-buildpackage --git-no-create-orig --git-tag --git-builder="debuild -S"
-$ sudo pbuilder --build ../xboxdrv_0.7.1-1.dsc
-$ dput my-ppa ../xboxdrv_0.7.1-1_source.changes
+$ sudo pbuilder --build --basetgz /var/cache/pbuilder/base-maverick.tgz ../xboxdrv_0.7.2-1.dsc
+$ dput my-ppa ../xboxdrv_0.7.2-1_source.changes
 
 # Ubuntu 10.04 (LTS)
 
 $ cd ../debian/
 $ git checkout master-lts
 $ git merge master
-$ dch -b -v "0.7.1-1~lucid1" --distribution lucid "xboxdrv 0.7.1 backport"
+$ dch -b -v "0.7.2-1~lucid1" --distribution lucid "xboxdrv 0.7.2 backport"
 $ git-buildpackage --git-no-create-orig --git-debian-branch=master-lts --git-tag --git-builder="debuild -S"
-$ sudo pbuilder --build ../xboxdrv_0.7.1-1~lucid1.dsc
-$ dput my-ppa ../xboxdrv_0.7.1-1~lucid1_source.changes
-
-
-Stuff to do before 0.7.1 release:
-=================================
-
-Documentation
-=============
-
-* update debian package description
-
-* copy examples to documentation dir in the Ubuntu packages
+$ sudo pbuilder --build --basetgz /var/cache/pbuilder/base-lucid.tgz ../xboxdrv_0.7.2-1~lucid1.dsc
+$ dput my-ppa ../xboxdrv_0.7.2-1~lucid1_source.changes
 
 
 Stuff to do before 0.7.2 release:
 =================================
 
+== Generic ==
+
+* add glib and dbus dependencies to .deb control file
+
+
+== Unsolved/WontFix ==
+
+* after every thread cleanup, do an enumeration over all USB devices,
+  find those not currently used by a Slot and recreate them, this
+  should fix resume issues, this would also fix the issue with
+  ignoring controllers when all slots are full
+
+  -> bad idea, as it would let unused controllers slip into the free
+     slots, could lead to unexpected behaviour
+
+  -> maybe as D-Bus interface?
+
+* allow multiple controllers in non-daemon mode
+  -> not a good idea, complicates stuff and duplicates code
+
+* remember controllers that couldn't be used when all slots where full
+  and use them when a slot got free -> discard, bad idea, as it
+  results in confusing behaviour
+
+
+
+* glib/D-Bus causes crash/exit when USBController::get_name() returns an invalid unicode string?!
+
+* move sigint/sigterm handling out of main.cpp and into xboxdrv_daemon.cpp (needs to use gmain_quit())
+
+* BTN_A@joystick.1 doesn't work for a single joystick, why? (joystick isn't id=0, why?)
+
+* improve output on which uinput devices are created (even with udev
+  there doesn't seem to be a bullet proof way to detect what gets
+  created)
+
+  -> insert "guess code" before the uinput create call and just pretent thats bullet proof
+  -> figure out how exactly device names are choosen (first free or
+     are there other means? need to take special axes/buttons into account)
+
+== Daemon ==
+
+* check how daemon reacts on suspend
+  - suspending the computer leads to LIBUSB_ERROR_IO, unplugging the
+    controller leads to LIBUSB_ERROR_OTHER
+    -> couldn't be replicated, both give LIBUSB_ERROR_OTHER
+  - errno is set to EBUSY
+  - the device handle can't be reused, device has to be reallocated
+  - integrate this with the "keep backlog of devices currently in use"
+
+
+== Daemon ==
+
+* improve output in daemon mode, when --quiet is not given print the
+  number of allocated controller slots
+
+* get rid of all std::cout stuff when using detached daemon, redirect
+  log output to a file, syslog or somewhere else: 
+
+  --silent:  stops event output
+  --quiet:   stops all stdout output (automatically used when --detach is given, except for errors)
+  --verbose: print info level log output
+  --debug:   print debug level log output
+
+
+== D-Bus ==
+
+* interface for next release:
+
+  Daemon/GetControllerSlotCount -> INT // do we need those or can
+  Daemon/GetControllerCount -> INT     // directories be browsed?
+
+== Other ==
+
+* document that Xbox360 wireless controller shuts down at 15min
+
+* give proper exit code when no controller is found
+
+* sort options a bit more between global ones, slot local ones and
+  config local ones
+
+* in INI files should allow:
+
+  [xboxdrv]
+  ui-buttonmap = A=BTN_A,B=BTN_B,...
+
+  - in general cleanup config handling, turn almost everything into
+    proper functions and use the same functions for both cmdline and ini
+
+* allow setting a --default-name from which all other controller names
+  are derived 
+   -> already there in the form of auto.auto? 
+     -> No, as those don't derive the name, but set a fixed one
+
+* allow swap/assign of controller to slots via dbus
+
+* do modifier/filter dump when --verbose is given, make verbose
+  overall more useful
+
+* make more use of percentance values (in deadzone filter for example)
+
+* couldn't convert 'XK_Page_Up' to enum, not a member of X11Keysym
+  currenty code can't handle multple names for a single key
+
+* add a fun modifier that counts button presses and other useless stuff
+
+  - count button presses (done)
+  - count time a button is held down, both in min:sec and percent
+  - count distance an axis travels
+  - allow access/reset via dbus
+
+  * document them, ignore axis and button time for now
+
+* daemon on regular xboxdrv have different controller orderings (hard
+  to avoid, as wireless controllers are only picked up when active,
+  which they always become later then the wired ones, which are active
+  by default)
+
+* look at Joy2key for better mouse support (mouse acceleration), see Dustin Moline mails
+  * timeout makes a huge difference, real MarbleMouse Trackball send around every 10msec
+  * need to deal with rounding errors to allow small movements
+
+* add --ui-buttonmap A=KEY_A:KEY_B:1000:1 
+
+  the last 0/1 parameter tells if it should do:
+
+   - 0: send on release
+   - 1: always send when pressed
+
+  different games might require different behaviours for the
+  hold-button, so it should be an user option
+
+* add double shift buttons: L+R+start
+
+* add execv: that takes arguments in ARG0:ARG1,... style
+
+* add system: that takes arguments "ARG0 ARG1 ..." style
+
+* add match rule for wireless id
+
+* add --exclued, --exclude-group as ControllerMatchRules
+
+* XboxdrvThread or XboxGenericController must hold information on
+  their: bus:dev, vendor:product and other potentially useful
+  information, match rule must match against controller, not
+  udev_device
+   -> doesn't work, as we don't have a controller at that point
+   -> match against abstract ControllerInfo object?
+   -> get_busnum()
+   -> get_devnum()
+
+   -> figure out potential matches early and save the valid slots?
+      -> ugly but could work
+
 * add [controller0/config0] support for ControllerOptions
 
 * add [controller0] support for ControllerSlotOptions
-
-* BTN_A@joystick.1 doesn't work for a single joystick, why?
 
 * write relaxation modifier/filter
 
@@ -66,24 +207,14 @@ Stuff to do before 0.7.2 release:
   identify the device as joystick, also document exactly which
   buttons/axis combinations are valid.
 
-Daemon
-======
+* allow something like:
 
-* improve output in daemon mode, when --quiet is not given print the
-  number of allocated controller slots
+  void = BTN_A
 
-* how exactly does daemon interact with wireless pads?! allow --wid --id for daemon
+  to create empty events on uinput
 
 Other Stuff
 ===========
-
-* in INI files allow:
-
-  [xboxdrv]
-  ui-buttonmap = A=BTN_A,B=BTN_B,...
-
-  - in general cleanup config handling, turn almost everything into
-    proper functions and use the same functions for both cmdline and ini
 
 * --ui-axismap LT=KEY_A:KEY_B:1 
 
@@ -93,54 +224,16 @@ cause some trouble with automatic key repeat for some reason. Note
 that you must not combine this with --trigger-as-zaxis as that will
 disable LT and RT
 
-* check how daemon reacts on suspend
-  - suspending the computer leads to LIBUSB_ERROR_IO, unplugging the
-    controller leads to LIBUSB_ERROR_OTHER
-
-* remember controllers that couldn't be used when all slots where full
-  and use them when a slot got free
-
-* improve output on which uinput devices are created (even with udev
-  there doesn't seem to be a bullet proof way to detect what gets
-  created)
-
-* do modifier/filter dump when --verbose is given, make verbose
-  overall more useful
-
 * remove uinput.send_rel_repetitive() replace with just EventHandler::update()
-
-* add --device-usbid TYPE.SLOT=VENDOR:PRODUCT:VERSION
-
-* allow multiple controllers in non-daemon mode
-
-* make more use of percentance values (in deadzone filter for example)
-
-* add extra arguments to --on-connect and --on-disconnect (controller name, usb path, etc.)
+  -> might not be needed, send_rel_repetitive() is kind of convenient  
 
 * boost::lexical_cast<> error messages are useless, make some better ones
-
-* couldn't convert 'XK_Page_Up' to enum, not a member of X11Keysym
-  currenty code can't handle multple names for a single key
 
 * --match again sysname could make sense, seems somewhat constant:
   "5-2" Xbox1 controller results in "5-2.1", due to being really two
   devices, would help to now how exactly those are formed
 
-* --four-way-restrictor for the dpad?
-
-  - keep whatever direction is pressed first, don't allow walking over diagonals?
-  - always keep last main direction until another main direction got pressed?
-  - --disable-dpad-diagonals ur,dl,dl
-
-  * extend usbid match rule to bcd device
-
-* get rid of all std::cout stuff when using detached daemon, redirect
-  log output to a file somewhere else: 
-
-  --silent:  stops event output
-  --quiet:   stops all stdout output (automatically used when --detach is given)
-  --verbose: print info level log output
-  --debug:   print debug level log output
+* extend usbid match rule to bcd device
 
 
 Stuff to do before 0.7.3 release:
@@ -181,43 +274,6 @@ Stuff to do before 0.7.x release:
 * -R, --rumble-test is broken for FirestormDualController (has no analog triggers)
 
 * add ABS support to macros events (need to deal with min/max)
-
-* Playstation 3 controller support
-  - http://www.pabr.org/sixlinux/sixlinux.en.html
-  - http://www.motioninjoy.com/
-
-  - figure out what the remaining unknown bits mean:
-
-     data from just pluging the controller in and out a few times
-     without much pause inbetween:
-
-     Dualshock3:
-     // leaving controller plugged in for a longer time settles to this:
-      00 00 03 ef 16 00 00 00 00 33 fc 77 01 de
-
-     00 00 03 ef 16 00 00 00 00 33 fc 77 01 de 
-     00 00 03 ef 16 00 00 00 00 33 fc 77 01 c0
-     00 00 02 ee 12 00 00 00 00 12 fc 77 01 de
-           ^^^^^                         ^^^^^
-     00 00 01 ee 12 00 00 00 00 12 fc 77 01 de 
-     00 00 03 ef 16 00 00 00 00 11 fc 77 01 de 
-     00 00 03 ef 16 00 00 00 00 33 fc 77 01 de 
-     00 00 02 ee 12 00 00 00 00 12 fc 77 01 de 
-     wrong ideas: bluetooth master id
-
-     00 00 01 ef 16 00 00 00 00 11 fc 77 01 c0
-     00 00 03 ef 16 00 00 00 00 11 fc 77 01 c0
-
-     SIXAXIS:
-     00 00 06 ee 10 00 00 00 00 06 83 77 01 81 
-     00 00 06 ee 10 00 00 00 00 06 83 77 01
-     00 00 06 ee 10 00 00 00 00 06 83 77 
-
-     // taken from: http://www.pabr.org/sixlinux/sixlinux.en.html
-     00 00 02 ee 10 00 00 00 00 02 b2 77 01 81
-     
-     random guesses: bluetooth id, serial number, calibration data,
-     battery status
 
 * add support for pairing the controller to the PC (or zero)
 
@@ -369,10 +425,52 @@ Orange	LB1	+32767
 
 * add support for LED messages (can this be used by anything?)
 
-* include id/wid in device name (would be cleaner, since it makes the
-  device unique, but would make Xorg trouble worse)
+
+Stuff to do before 0.8.0 release:
+=================================
+
+* Playstation 3 controller bluetooth support
+  - http://www.pabr.org/sixlinux/sixlinux.en.html
+  - http://www.motioninjoy.com/
+
+  - figure out what the remaining unknown bits mean:
+
+     data from just pluging the controller in and out a few times
+     without much pause inbetween:
+
+     Dualshock3:
+     // leaving controller plugged in for a longer time settles to this:
+      00 00 03 ef 16 00 00 00 00 33 fc 77 01 de
+
+     00 00 03 ef 16 00 00 00 00 33 fc 77 01 de 
+     00 00 03 ef 16 00 00 00 00 33 fc 77 01 c0
+     00 00 02 ee 12 00 00 00 00 12 fc 77 01 de
+           ^^^^^                         ^^^^^
+     00 00 01 ee 12 00 00 00 00 12 fc 77 01 de 
+     00 00 03 ef 16 00 00 00 00 11 fc 77 01 de 
+     00 00 03 ef 16 00 00 00 00 33 fc 77 01 de 
+     00 00 02 ee 12 00 00 00 00 12 fc 77 01 de 
+     wrong ideas: bluetooth master id
+
+     00 00 01 ef 16 00 00 00 00 11 fc 77 01 c0
+     00 00 03 ef 16 00 00 00 00 11 fc 77 01 c0
+
+     SIXAXIS:
+     00 00 06 ee 10 00 00 00 00 06 83 77 01 81 
+     00 00 06 ee 10 00 00 00 00 06 83 77 01
+     00 00 06 ee 10 00 00 00 00 06 83 77 
+
+     // taken from: http://www.pabr.org/sixlinux/sixlinux.en.html
+     00 00 02 ee 10 00 00 00 00 02 b2 77 01 81
+     
+     random guesses: bluetooth id, serial number, calibration data,
+     battery status
+
+* Wiimote support (either native or via libcwiid
 
 
+Random Stuff
+============
 http://lists.libsdl.org/pipermail/sdl-libsdl.org/2007-March/060263.html
 
 - fix http://userweb.kernel.org/~dtor/eviocgbit-bug.html in evtest
@@ -382,6 +480,5 @@ http://lists.libsdl.org/pipermail/sdl-libsdl.org/2007-March/060263.html
 - read from stdin on the main thread
 - send output to file or so
 usb -d 005:006 -c 5:in,5:out,6:in,7:in,8:out -o /tmp/out, else stdin
-
 
 # EOF #

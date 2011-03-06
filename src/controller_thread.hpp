@@ -20,22 +20,27 @@
 #define HEADER_XBOXDRV_XBOXDRV_THREAD_HPP
 
 #include <boost/thread.hpp>
+#include <boost/shared_ptr.hpp>
 
 #include "controller_slot_config.hpp"
+#include "controller_slot_ptr.hpp"
+#include "controller_ptr.hpp"
 
 class Options;
-class XboxGenericController;
 class MessageProcessor;
+class ControllerThread;
 
-/** XboxdrvThread handles a single XboxGenericController controller
-    (optionally in a separate thread), reads it messages and passes it
-    to the MessageProcessor */
-class XboxdrvThread // FIXME: find a better name, XboxdrvControllerLoop?!
+typedef boost::shared_ptr<ControllerThread> ControllerThreadPtr;
+
+/** ControllerThread handles a single Controller (optionally in a
+    separate thread), reads it messages and passes it to the
+    MessageProcessor */
+class ControllerThread // FIXME: find a better name, XboxdrvControllerLoop?!
 {
 private:
   std::auto_ptr<boost::thread> m_thread;
   std::auto_ptr<MessageProcessor> m_processor;
-  std::auto_ptr<XboxGenericController> m_controller;
+  ControllerPtr m_controller;
   bool m_loop;
 
   XboxGenericMsg m_oldrealmsg; /// last data read from the device
@@ -45,11 +50,12 @@ private:
 
   int m_timeout;
 
+  std::vector<ControllerSlotWeakPtr> m_compatible_slots;
+
 public:
-  XboxdrvThread(std::auto_ptr<MessageProcessor> processor,
-                std::auto_ptr<XboxGenericController> controller,
-                const Options& opts);
-  ~XboxdrvThread();
+  ControllerThread(ControllerPtr controller,
+                   const Options& opts);
+  ~ControllerThread();
 
   // main loop, can be started in a separate thread with
   // start_thread() or used in its own in the main thread
@@ -60,13 +66,27 @@ public:
   void stop_thread();
   bool try_join_thread();
 
+  bool is_active() const;
+
+  std::string get_usbpath() const;
+  std::string get_usbid() const;
+  std::string get_name() const;
+
+  std::vector<ControllerSlotWeakPtr> get_compatible_slots() const;
+  void set_compatible_slots(const std::vector<ControllerSlotPtr>& slots);
+
+  void set_message_proc(std::auto_ptr<MessageProcessor> processor);
+  MessageProcessor* get_message_proc() const { return m_processor.get(); }
+
+  ControllerPtr get_controller() const { return m_controller; }
+
 private:
   void launch_child_process();
   void watch_chid_process();
 
 private:
-  XboxdrvThread(const XboxdrvThread&);
-  XboxdrvThread& operator=(const XboxdrvThread&);
+  ControllerThread(const ControllerThread&);
+  ControllerThread& operator=(const ControllerThread&);
 };
 
 #endif

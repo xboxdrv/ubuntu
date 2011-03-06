@@ -21,15 +21,12 @@
 
 #include <libusb.h>
 #include "xboxmsg.hpp"
-#include "xbox_generic_controller.hpp"
+#include "usb_controller.hpp"
 
-class FirestormDualController : public XboxGenericController
+class FirestormDualController : public USBController
 {
 private:
   bool is_vsb;
-  libusb_device* dev;
-  libusb_device_handle* handle;
-  
   int left_rumble;
   int right_rumble;
 

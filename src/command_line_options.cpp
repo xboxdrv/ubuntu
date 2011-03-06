@@ -52,9 +52,11 @@ enum {
   OPTION_WRITE_CONFIG,
   OPTION_TEST_RUMBLE,
   OPTION_RUMBLE,
+  OPTION_PRIORITY,
   OPTION_QUIT,
   OPTION_NO_UINPUT,
   OPTION_MIMIC_XPAD,
+  OPTION_MIMIC_XPAD_WIRELESS,
   OPTION_NO_EXTRA_DEVICES,
   OPTION_NO_EXTRA_EVENTS,
   OPTION_TYPE,
@@ -63,8 +65,10 @@ enum {
   OPTION_MODIFIER,
   OPTION_BUTTONMAP,
   OPTION_AXISMAP,
-  OPTION_NAME,
   OPTION_DEVICE_NAME,
+  OPTION_DEVICE_NAMES,
+  OPTION_DEVICE_USBID,
+  OPTION_DEVICE_USBIDS,
   OPTION_NEXT_CONFIG,
   OPTION_NEXT_CONTROLLER,
   OPTION_CONFIG_SLOT,
@@ -150,6 +154,7 @@ CommandLineParser::init_argp()
     .add_option(OPTION_SILENT,       's', "silent",  "",  "do not display events on console")
     .add_option(OPTION_QUIET,         0,  "quiet",   "",  "do not display startup text")
     .add_option(OPTION_USB_DEBUG,     0,  "usb-debug", "",  "enable log messages from libusb")
+    .add_option(OPTION_PRIORITY,      0,  "priority", "PRI", "increases process priority (default: normal)")
     .add_newline()
 
     .add_text("List Options: ")
@@ -239,7 +244,7 @@ CommandLineParser::init_argp()
     .add_newline()
 
     .add_text("Configuration Options:")
-    .add_option(OPTION_MODIFIER,           0, "modifier",        "MOD=ARG:..", "Add a modifier to the modifier spec")
+    .add_option(OPTION_MODIFIER,          'm', "modifier",       "MOD=ARG:..", "Add a modifier to the modifier spec")
     .add_option(OPTION_TIMEOUT,            0, "timeout",         "INT",  "Amount of time to wait fo a device event before processing autofire, etc. (default: 25)")
     .add_option(OPTION_BUTTONMAP,         'b', "buttonmap",      "MAP",   "Remap the buttons as specified by MAP (example: B=A,X=A,Y=A)")
     .add_option(OPTION_AXISMAP,           'a', "axismap",        "MAP",   "Remap the axis as specified by MAP (example: -Y1=Y1,X1=X2)")
@@ -263,16 +268,19 @@ CommandLineParser::init_argp()
     .add_option(OPTION_DPAD_AS_BUTTON,     0, "dpad-as-button",   "",     "DPad sends button instead of axis events")
     .add_option(OPTION_DPAD_ONLY,          0, "dpad-only",        "",     "Both sticks are ignored, only DPad sends out axis events")
     .add_option(OPTION_GUITAR,             0, "guitar",            "",     "Enables guitar button and axis mapping")
-    .add_option(OPTION_MOUSE,             'm', "mouse",            "",     "Enable mouse emulation")
-    .add_option(OPTION_MIMIC_XPAD,         0,  "mimic-xpad",  "", "Causes xboxdrv to use the same axis and button names as the xpad kernel driver")
+    .add_option(OPTION_MOUSE,              0, "mouse",            "",     "Enable mouse emulation")
+    .add_option(OPTION_MIMIC_XPAD,         0,  "mimic-xpad",  "", "Causes xboxdrv to use the same axis and button names as the xpad kernel driver for wired gamepads")
+    .add_option(OPTION_MIMIC_XPAD_WIRELESS, 0,  "mimic-xpad-wireless",  "", "Causes xboxdrv to use the same axis and button names as the xpad kernel driver for wireless gamepads")
     .add_newline()
 
     .add_text("Uinput Configuration Options: ")
     .add_option(OPTION_NO_UINPUT,          0, "no-uinput",   "", "do not try to start uinput event dispatching")
     .add_option(OPTION_NO_EXTRA_DEVICES,   0, "no-extra-devices",  "", "Do not create separate virtual keyboard and mouse devices, just use a single virtual device")
     .add_option(OPTION_NO_EXTRA_EVENTS,    0, "no-extra-events",  "", "Do not create dummy events to facilitate device type detection")
-    .add_option(OPTION_NAME,               0, "name",            "NAME", "Changes the name prefix used for devices in the current slot")
-    .add_option(OPTION_DEVICE_NAME,        0, "device-name",     "DEVID=NAME", "Changes the descriptive name the given device")
+    .add_option(OPTION_DEVICE_NAME,        0, "device-name",     "NAME", "Changes the name prefix used for devices in the current slot")
+    .add_option(OPTION_DEVICE_NAMES,       0, "device-names",    "DEVID=NAME,...", "Changes the descriptive name the given devices")
+    .add_option(OPTION_DEVICE_USBID,       0, "device-usbid",     "VENDOR:PRODUCT:VERSION", "Changes the USB Id used for devices in the current slot")
+    .add_option(OPTION_DEVICE_USBIDS,      0, "device-usbids",    "DEVID=VENDOR:PRODUCT:VERSION,...", "Changes the USB Id for the given devices")
     .add_option(OPTION_UI_CLEAR,           0, "ui-clear",         "",     "Removes all existing uinput bindings")
     .add_option(OPTION_UI_BUTTONMAP,       0, "ui-buttonmap",     "MAP",  "Changes the uinput events send when hitting a button (example: X=BTN_Y,A=KEY_A)")
     .add_option(OPTION_UI_AXISMAP,         0, "ui-axismap",       "MAP",  "Changes the uinput events send when moving a axis (example: X1=ABS_X2)")
@@ -296,6 +304,7 @@ CommandLineParser::init_argp()
 
     .add_text("Modifier:")
     .add_pseudo("  dpad-rotate=DEGREE", "Rotate the dpad by the given number of degree")
+    .add_pseudo("  dpad-restrictor=RESTRICTION", "Restrict dpad movment to 'x-axis', 'y-axis' or 'four-way'")
     .add_pseudo("  4wayrest, four-way-restrictor=XAXIS:YAXIS", "Restrict the given stick to four directions")
     .add_pseudo("  square, square-axis=XAXIS:YAXIS", "Convert the circular motion range of the given stick to a square one")
     .add_pseudo("  rotate=XAXIS:YAXIS:DEGREE[:MIRROR]", "Rotate the given stick by DEGREE, optionally also mirror it")
@@ -335,10 +344,12 @@ CommandLineParser::init_ini(Options* opts)
     ("config", boost::bind(&CommandLineParser::read_config_file, this, opts, _1))
     ("alt-config", boost::bind(&CommandLineParser::read_alt_config_file, this, opts, _1))
     ("timeout", &opts->timeout)
+    ("priority", boost::bind(&Options::set_priority, boost::ref(opts), _1))
     ("next", boost::bind(&Options::next_config, boost::ref(opts)), boost::function<void ()>())
     ("next-controller", boost::bind(&Options::next_controller, boost::ref(opts)), boost::function<void ()>())
     ("extra-devices", &opts->extra_devices)
     ("extra-events", &opts->extra_events)
+    ("toggle", boost::bind(&Options::set_toggle_button, boost::ref(opts), _1))
 
     ("deadzone", boost::bind(&CommandLineParser::set_deadzone, this, _1))
     ("deadzone-trigger", boost::bind(&CommandLineParser::set_deadzone_trigger, this, _1))
@@ -348,6 +359,7 @@ CommandLineParser::init_ini(Options* opts)
 
     // uinput stuff
     ("device-name",       boost::bind(&Options::set_device_name, boost::ref(opts), _1))
+    ("device-usbid",      boost::bind(&Options::set_device_usbid, boost::ref(opts), _1))
     ("mouse",             boost::bind(&Options::set_mouse, boost::ref(opts)),             boost::function<void ()>())
     ("guitar",            boost::bind(&Options::set_guitar, boost::ref(opts)),            boost::function<void ()>())
     ("trigger-as-button", boost::bind(&Options::set_trigger_as_button, boost::ref(opts)), boost::function<void ()>())
@@ -388,6 +400,8 @@ CommandLineParser::init_ini(Options* opts)
   m_ini.section("relative-axis",   boost::bind(&CommandLineParser::set_relative_axis, this, _1, _2));
   m_ini.section("calibration",   boost::bind(&CommandLineParser::set_calibration, this, _1, _2));
   m_ini.section("axis-sensitivity",   boost::bind(&CommandLineParser::set_axis_sensitivity, this, _1, _2));
+  m_ini.section("device-name", boost::bind(&CommandLineParser::set_device_name, this, _1, _2));
+  m_ini.section("device-usbid", boost::bind(&CommandLineParser::set_device_usbid, this, _1, _2));
 
   for(int controller = 0; controller <= 9; ++controller)
   {
@@ -461,6 +475,10 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
 
       case OPTION_USB_DEBUG:
         opts.set_usb_debug();
+        break;
+
+      case OPTION_PRIORITY:
+        opts.set_priority(opt.argument);
         break;
 
       case OPTION_DAEMON:
@@ -543,6 +561,10 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
 
       case OPTION_MIMIC_XPAD:
         opts.set_mimic_xpad();
+        break;
+
+      case OPTION_MIMIC_XPAD_WIRELESS:
+        opts.set_mimic_xpad_wireless();
         break;
 
       case OPTION_TYPE:
@@ -643,13 +665,21 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
       case OPTION_AXISMAP:
         process_name_value_string(opt.argument, boost::bind(&CommandLineParser::set_axismap, this, _1, _2));
         break;
-                    
-      case OPTION_DEVICE_NAME:
-        process_name_value_string(opt.argument, boost::bind(&CommandLineParser::set_device_name, this, _1, _2));
+
+      case OPTION_DEVICE_USBID:
+        opts.set_device_usbid(opt.argument);
         break;
 
-      case OPTION_NAME:
+      case OPTION_DEVICE_USBIDS:
+        process_name_value_string(opt.argument, boost::bind(&CommandLineParser::set_device_usbid, this, _1, _2));
+        break;
+                    
+      case OPTION_DEVICE_NAME:
         opts.set_device_name(opt.argument);
+        break;
+
+      case OPTION_DEVICE_NAMES:
+        process_name_value_string(opt.argument, boost::bind(&CommandLineParser::set_device_name, this, _1, _2));
         break;
 
       case OPTION_NEXT_CONFIG:
@@ -669,7 +699,7 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         break;
 
       case OPTION_TOGGLE:
-        opts.config_toggle_button = string2btn(opt.argument);
+        opts.set_toggle_button(opt.argument);
         break;
 
       case OPTION_UI_CLEAR:
@@ -953,7 +983,7 @@ CommandLineParser::print_version() const
 {
   std::cout
     << "xboxdrv " PACKAGE_VERSION " - http://pingus.seul.org/~grumbel/xboxdrv/\n"
-    << "Copyright © 2008-2010 Ingo Ruhnke <grumbel@gmx.de>\n"
+    << "Copyright © 2008-2011 Ingo Ruhnke <grumbel@gmx.de>\n"
     << "Licensed under GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n"
     << "This program comes with ABSOLUTELY NO WARRANTY.\n"
     << "This is free software, and you are welcome to redistribute it under certain\n"
@@ -967,32 +997,16 @@ CommandLineParser::set_modifier(const std::string& name, const std::string& valu
 }
 
 void
+CommandLineParser::set_device_usbid(const std::string& name, const std::string& value)
+{
+  uint32_t devid = UInput::parse_device_id(name);
+  m_options->uinput_device_usbids[devid] = UInput::parse_input_id(value);
+}
+
+void
 CommandLineParser::set_device_name(const std::string& name, const std::string& value)
 {
-  // FIXME: insert magic to resolve symbolic names
-  std::string::size_type p = name.find('.');
-
-  uint16_t device_id;
-  uint16_t slot_id;
-
-  if (p == std::string::npos)
-  {
-    device_id = str2deviceid(name.substr());
-    slot_id   = SLOTID_AUTO;
-  }
-  else if (p == 0)
-  {
-    device_id = DEVICEID_AUTO;
-    slot_id   = str2slotid(name.substr(p+1));
-  }
-  else
-  {
-    device_id = str2deviceid(name.substr(0, p));
-    slot_id   = str2slotid(name.substr(p+1));
-  }
-
-  uint32_t devid = UInput::create_device_id(slot_id, device_id);
-      
+  uint32_t devid = UInput::parse_device_id(name);
   m_options->uinput_device_names[devid] = value;
 }
 

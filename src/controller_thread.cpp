@@ -16,14 +16,14 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "xboxdrv_thread.hpp"
+#include "controller_thread.hpp"
 
 #include <iostream>
 #include <sys/wait.h>
 
 #include "helper.hpp"
 #include "log.hpp"
-#include "xbox_generic_controller.hpp"
+#include "controller.hpp"
 #include "message_processor.hpp"
 
 extern bool global_exit_xboxdrv;
@@ -31,25 +31,22 @@ extern bool global_exit_xboxdrv;
 // FIXME: isolate problametic code to a separate file, instead of pragma
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 
-XboxdrvThread::XboxdrvThread(std::auto_ptr<MessageProcessor> processor,
-                             std::auto_ptr<XboxGenericController> controller,
-                             const Options& opts) :
+ControllerThread::ControllerThread(ControllerPtr controller,
+                                   const Options& opts) :
   m_thread(),
-  m_processor(processor),
+  m_processor(),
   m_controller(controller),
   m_loop(true),
   m_oldrealmsg(),
   m_child_exec(opts.exec),
   m_pid(-1),
-  m_timeout(opts.timeout)
+  m_timeout(opts.timeout),
+  m_compatible_slots()
 {
   memset(&m_oldrealmsg, 0, sizeof(m_oldrealmsg));
-
-  // connect the processor to the controller to allow rumble
-  m_processor->set_ff_callback(boost::bind(&XboxGenericController::set_rumble, m_controller.get(), _1, _2));
 }
 
-XboxdrvThread::~XboxdrvThread()
+ControllerThread::~ControllerThread()
 {
   if (m_thread.get())
   {
@@ -60,7 +57,19 @@ XboxdrvThread::~XboxdrvThread()
 }
 
 void
-XboxdrvThread::launch_child_process()
+ControllerThread::set_message_proc(std::auto_ptr<MessageProcessor> processor)
+{
+  m_processor = processor;
+
+  // connect the processor to the controller to allow rumble
+  if (m_processor.get())
+  {
+    m_processor->set_ff_callback(boost::bind(&Controller::set_rumble, m_controller.get(), _1, _2));
+  }
+}
+
+void
+ControllerThread::launch_child_process()
 {
   if (!m_child_exec.empty())
   { // launch program if one was given
@@ -85,7 +94,7 @@ XboxdrvThread::launch_child_process()
 }
 
 void
-XboxdrvThread::watch_chid_process()
+ControllerThread::watch_chid_process()
 {
   if (m_pid != -1)
   {
@@ -117,7 +126,7 @@ XboxdrvThread::watch_chid_process()
 }
 
 void
-XboxdrvThread::controller_loop(const Options& opts)
+ControllerThread::controller_loop(const Options& opts)
 {
   launch_child_process();
 
@@ -149,7 +158,10 @@ XboxdrvThread::controller_loop(const Options& opts)
       int msec_delta = this_time - last_time;
       last_time = this_time;
 
-      m_processor->send(msg, msec_delta);
+      if (m_processor.get())
+      {
+        m_processor->send(msg, msec_delta);
+      }
 
       if (opts.rumble)
       {
@@ -175,20 +187,60 @@ XboxdrvThread::controller_loop(const Options& opts)
     XboxGenericMsg msg;
     msg.type = XBOX_MSG_XBOX360;
     memset(&msg.xbox360, 0, sizeof(msg.xbox360));
-    m_processor->send(msg, 0);
+    if (m_processor.get())
+    {
+      m_processor->send(msg, 0);
+    }
   }
+}
+
+bool
+ControllerThread::is_active() const
+{
+  return m_controller->is_active();
 }
 
 void
-XboxdrvThread::start_thread(const Options& opts)
+ControllerThread::start_thread(const Options& opts)
 {
   assert(m_thread.get() == 0);
-  m_thread.reset(new boost::thread(boost::bind(&XboxdrvThread::controller_loop, this, 
+  m_thread.reset(new boost::thread(boost::bind(&ControllerThread::controller_loop, this, 
                                                boost::cref(opts))));
+
+  if (opts.priority == Options::kPriorityRealtime)
+  {
+    // try to set realtime priority when root, as user there doesn't
+    // seem to be a way to increase the priority
+    if (geteuid() != 0)
+    {
+      log_error("realtime priority scheduling requires running as root");
+    }
+    else
+    {
+      log_info("enabling realtime priority scheduling");
+      pthread_t tid = static_cast<pthread_t>(m_thread->native_handle());
+  
+      int ret;
+      int policy;
+      struct sched_param param;
+      memset(&param, 0, sizeof(struct sched_param));
+
+      policy = SCHED_RR;
+      param.sched_priority = sched_get_priority_max(policy);
+
+      // we don't try SCHED_OTHER for users as min and max priority is
+      // 0 for that, thus we can't change anything with that
+
+      if ((ret = pthread_setschedparam(tid, policy, &param)) != 0)
+      {
+        log_error("pthread_setschedparam() failed: " << ret);
+      }
+    }
+  }
 }
 
 void
-XboxdrvThread::stop_thread()
+ControllerThread::stop_thread()
 {
   assert(m_thread.get());
 
@@ -198,7 +250,7 @@ XboxdrvThread::stop_thread()
 }
 
 bool
-XboxdrvThread::try_join_thread()
+ControllerThread::try_join_thread()
 {
   bool got_joined = m_thread->timed_join(boost::posix_time::time_duration(0,0,0,0));
   if (got_joined)
@@ -209,6 +261,40 @@ XboxdrvThread::try_join_thread()
   else
   {
     return false;
+  }
+}
+
+std::string
+ControllerThread::get_usbpath() const
+{
+  return m_controller->get_usbpath();
+}
+   
+std::string 
+ControllerThread::get_usbid() const
+{
+  return m_controller->get_usbid();
+}
+
+std::string
+ControllerThread::get_name() const
+{
+  return m_controller->get_name();
+}
+
+std::vector<ControllerSlotWeakPtr> 
+ControllerThread::get_compatible_slots() const
+{
+  return m_compatible_slots;
+}
+
+void
+ControllerThread::set_compatible_slots(const std::vector<ControllerSlotPtr>& slots)
+{
+  m_compatible_slots.clear();
+  for(std::vector<ControllerSlotPtr>::const_iterator i = slots.begin(); i != slots.end(); ++i)
+  {
+    m_compatible_slots.push_back(*i);
   }
 }
 

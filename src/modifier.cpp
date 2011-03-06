@@ -20,10 +20,12 @@
 
 #include <boost/tokenizer.hpp>
 
+#include "modifier/dpad_restrictor_modifier.hpp"
 #include "modifier/dpad_rotation_modifier.hpp"
 #include "modifier/four_way_restrictor_modifier.hpp"
-#include "modifier/square_axis_modifier.hpp"
 #include "modifier/rotate_axis_modifier.hpp"
+#include "modifier/square_axis_modifier.hpp"
+#include "modifier/statistic_modifier.hpp"
 
 Modifier*
 Modifier::from_string(const std::string& name, const std::string& value)
@@ -60,6 +62,14 @@ Modifier::from_string(const std::string& name, const std::string& value)
     else if (name == "rotate")
     {
       return RotateAxisModifier::from_string(args);
+    }
+    else if (name == "stat" || name == "statistic")
+    {
+      return StatisticModifier::from_string(args);
+    }
+    else if (name == "dpad-restrictor")
+    {
+      return DpadRestrictorModifier::from_string(args);
     }
     else
     {
