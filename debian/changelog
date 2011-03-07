@@ -1,3 +1,9 @@
+xboxdrv (0.7.2-2) maverick; urgency=low
+
+  * Fixed xboxdrvctl install
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Mon, 07 Mar 2011 05:22:11 +0100
+
 xboxdrv (0.7.2-1) maverick; urgency=low
 
   * xboxdrv 0.7.2 release
