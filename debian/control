@@ -1,4 +1,4 @@
-Source: xboxdrv
+Source: xboxdrv-stable
 Section: utils
 Priority: extra
 Maintainer: Ingo Ruhnke <grumbel@gmx.de>
@@ -8,7 +8,7 @@ Build-Depends: scons, libusb-dev, libx11-dev, x11proto-core-dev,
 Standards-Version: 3.8.4
 Homepage: http://pingus.seul.org/~grumbel/xboxdrv/
 
-Package: xboxdrv
+Package: xboxdrv-stable
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, python-dbus, python
 Description: A Xbox360 gamepad driver for the userspace
