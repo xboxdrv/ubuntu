@@ -13,6 +13,6 @@
 	dh  $@
 
 override_dh_auto_install:
-	make install PREFIX="/usr" DESTDIR="$(CURDIR)/debian/xboxdrv"
+	make install PREFIX="/usr" DESTDIR="$(CURDIR)/debian/xboxdrv-stable"
 
 # EOF #
