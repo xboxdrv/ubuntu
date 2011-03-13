@@ -1,3 +1,9 @@
+xboxdrv-stable (0.6.6-1~lucid1) lucid; urgency=low
+
+  * xboxdrv-stable 0.6.6-1 backport
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Sun, 13 Mar 2011 09:54:04 +0100
+
 xboxdrv-stable (0.6.6-1) maverick; urgency=low
 
   * Renamed to xboxdrv-stable
