@@ -100,8 +100,34 @@ public:
 
 private:
   UIEvent m_code;
-  float m_value; // FIXME: Why is this float?
-  int   m_repeat;
+  float   m_value;
+  int     m_repeat;
+
+  float   m_stick_value;
+  float   m_rest_value;
+};
+
+class RelRepeatAxisEventHandler : public AxisEventHandler
+{
+public:
+  static RelRepeatAxisEventHandler* from_string(const std::string& str);
+
+public:
+  RelRepeatAxisEventHandler(const UIEvent& code, int value, int repeat);
+
+  void init(UInput& uinput, int slot, bool extra_devices);
+  void send(UInput& uinput, int value);
+  void update(UInput& uinput, int msec_delta);
+
+  std::string str() const;
+
+private:
+  UIEvent m_code;
+  int     m_value;
+  float   m_repeat;
+
+  float   m_stick_value;
+  int     m_timer;
 };
 
 class AbsAxisEventHandler : public AxisEventHandler

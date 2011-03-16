@@ -21,16 +21,22 @@
 
 #include <libusb.h>
 #include <string>
+#include <memory>
 
+#include "usb_read_thread.hpp"
 #include "controller.hpp"
 
 class USBController : public Controller
 {
 protected:
+  libusb_device* m_dev;
   libusb_device_handle* m_handle;
+
   std::string m_usbpath;
   std::string m_usbid;
   std::string m_name;
+
+  std::auto_ptr<USBReadThread> m_read_thread;
 
 public:
   USBController(libusb_device* dev);
@@ -40,8 +46,11 @@ public:
   virtual std::string get_usbid() const;
   virtual std::string get_name() const;
 
-  void claim_interface(int ifnum, bool try_detach);
-  void release_interface(int ifnum);
+  void usb_claim_interface(int ifnum, bool try_detach);
+  void usb_release_interface(int ifnum);
+  int  usb_read(int endpoint, uint8_t* data, int len, int timeout);
+  void usb_write(int endpoint, uint8_t* data, int len);
+  int  usb_find_ep(int direction, uint8_t if_class, uint8_t if_subclass, uint8_t if_protocol);
 
 private:
   USBController(const USBController&);
