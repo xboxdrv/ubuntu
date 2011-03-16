@@ -107,6 +107,7 @@ public:
 
   // daemon options
   bool detach; 
+  bool dbus;
   std::string pid_file;
   std::string on_connect;
   std::string on_disconnect;
@@ -155,7 +156,6 @@ public:
   void set_device_name(const std::string& name);
   void set_device_usbid(const std::string& name);
   void set_toggle_button(const std::string& toggle);
-  void set_mouse();
   void set_guitar();
   void set_trigger_as_button();
   void set_trigger_as_zaxis();

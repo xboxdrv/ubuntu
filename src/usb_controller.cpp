@@ -24,10 +24,12 @@
 #include "raise_exception.hpp"
 
 USBController::USBController(libusb_device* dev) :
+  m_dev(dev),
   m_handle(0),
   m_usbpath(),
   m_usbid(),
-  m_name()
+  m_name(),
+  m_read_thread()
 {
   int ret = libusb_open(dev, &m_handle);
   if (ret != LIBUSB_SUCCESS)
@@ -97,7 +99,7 @@ USBController::get_name() const
 }
 
 void
-USBController::claim_interface(int ifnum, bool try_detach)
+USBController::usb_claim_interface(int ifnum, bool try_detach)
 {
   int err = usb_claim_n_detach_interface(m_handle, ifnum, try_detach);
   if (err != 0) 
@@ -110,10 +112,132 @@ USBController::claim_interface(int ifnum, bool try_detach)
 }
 
 void
-USBController::release_interface(int ifnum)
+USBController::usb_release_interface(int ifnum)
 {
   // should be called before closing the device handle
   libusb_release_interface(m_handle, ifnum); 
+}
+
+int
+USBController::usb_read(int endpoint, uint8_t* data, int len, int timeout)
+{
+  if (true) // use USBReadThread
+  {
+    if (!m_read_thread.get())
+    {
+      // launch the USBReadThread
+      m_read_thread.reset(new USBReadThread(m_handle, endpoint, len));
+      m_read_thread->start_thread();
+      return 0;
+    }
+    else
+    {
+      // read from the USBReadThread
+      int transferred = 0;
+      int ret = m_read_thread->read(data, len, &transferred, timeout);
+
+      if (ret == LIBUSB_SUCCESS)
+      {
+        return transferred;
+      }
+      else
+      {
+        return 0;
+      }
+    }
+  }
+  else
+  {
+    int transferred = 0;
+    int ret = libusb_interrupt_transfer(m_handle, LIBUSB_ENDPOINT_IN | endpoint,
+                                        data, len, &transferred, timeout);
+
+    if (ret == LIBUSB_ERROR_TIMEOUT)
+    {
+      return 0;
+    }
+    else if (ret == LIBUSB_SUCCESS)
+    {
+      return transferred;
+    }
+    else 
+    {
+      raise_exception(std::runtime_error, "libusb_interrupt_transfer() failed: " << usb_strerror(ret));
+    }
+  }
+}
+
+void
+USBController::usb_write(int endpoint, uint8_t* data, int len)
+{
+  int transferred = 0;
+  int ret = libusb_interrupt_transfer(m_handle, LIBUSB_ENDPOINT_OUT | endpoint,
+                                      data, len, &transferred, 0);
+  if (ret != LIBUSB_SUCCESS)
+  {
+    raise_exception(std::runtime_error, "libusb_interrupt_transfer() failed: " << usb_strerror(ret));
+  }
+
+  if (transferred != len)
+  {
+    raise_exception(std::runtime_error, "libusb_interrupt_transfer() short write: "
+                    << len << " - " << transferred);
+  }
+}
+
+int
+USBController::usb_find_ep(int direction, uint8_t if_class, uint8_t if_subclass, uint8_t if_protocol)
+{
+  libusb_config_descriptor* config;
+  int ret = libusb_get_config_descriptor(m_dev, 0 /* config_index */, &config);
+
+  if (ret != LIBUSB_SUCCESS)
+  {
+    raise_exception(std::runtime_error, "libusb_get_config_descriptor() failed: " << usb_strerror(ret));
+  }
+  else
+  {
+    int ret_endpoint = -1;
+
+    // FIXME: no need to search all interfaces, could just check the one we acutally use
+    for(const libusb_interface* interface = config->interface;
+        interface != config->interface + config->bNumInterfaces;
+        ++interface)
+    {
+      for(const libusb_interface_descriptor* altsetting = interface->altsetting;
+          altsetting != interface->altsetting + interface->num_altsetting;
+          ++altsetting)
+      {
+        log_debug("Interface: " << static_cast<int>(altsetting->bInterfaceNumber));
+          
+        for(const libusb_endpoint_descriptor* endpoint = altsetting->endpoint; 
+            endpoint != altsetting->endpoint + altsetting->bNumEndpoints; 
+            ++endpoint)
+        {
+          log_debug("    Endpoint: " << int(endpoint->bEndpointAddress & LIBUSB_ENDPOINT_ADDRESS_MASK) <<
+                    "(" << ((endpoint->bEndpointAddress & LIBUSB_ENDPOINT_DIR_MASK) ? "IN" : "OUT") << ")");
+
+          if ((endpoint->bEndpointAddress & LIBUSB_ENDPOINT_DIR_MASK) == direction &&
+              altsetting->bInterfaceClass    == if_class    &&
+              altsetting->bInterfaceSubClass == if_subclass &&
+              altsetting->bInterfaceProtocol == if_protocol)
+          {
+            ret_endpoint = static_cast<int>(endpoint->bEndpointAddress & LIBUSB_ENDPOINT_ADDRESS_MASK);
+          }
+        }
+      }
+    }
+    libusb_free_config_descriptor(config);
+
+    if (ret_endpoint < 0)
+    {
+      raise_exception(std::runtime_error, "couldn't find matching endpoint");
+    }
+    else
+    {
+      return ret_endpoint;
+    }
+  }
 }
 
 /* EOF */

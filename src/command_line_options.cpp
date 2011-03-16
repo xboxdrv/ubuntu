@@ -36,6 +36,8 @@
 #include "axisfilter/calibration_axis_filter.hpp"
 #include "axisfilter/sensitivity_axis_filter.hpp"
 #include "buttonfilter/autofire_button_filter.hpp"
+
+#include "xboxdrv_vfs.hpp"
 
 enum {
   OPTION_HELP,
@@ -118,6 +120,7 @@ enum {
   OPTION_DAEMON_PID_FILE,
   OPTION_DAEMON_MATCH,
   OPTION_DAEMON_MATCH_GROUP,
+  OPTION_DAEMON_NO_DBUS,
   OPTION_HELP_DEVICES,
   OPTION_LIST_ALL,
   OPTION_LIST_ABS,
@@ -182,6 +185,7 @@ CommandLineParser::init_argp()
     .add_option(OPTION_DAEMON,        'D', "daemon",    "", "Run as daemon")
     .add_option(OPTION_DAEMON_DETACH,   0, "detach",      "", "Detach the daemon from the current shell")
     .add_option(OPTION_DAEMON_PID_FILE, 0, "pid-file",    "FILE", "Write daemon pid to FILE")
+    .add_option(OPTION_DAEMON_NO_DBUS,  0, "no-dbus",    "", "Disables D-Bus support in the daemon")
     .add_option(OPTION_DAEMON_ON_CONNECT,    0, "on-connect", "FILE", "Launch EXE when a new controller is connected")
     .add_option(OPTION_DAEMON_ON_DISCONNECT, 0, "on-disconnect", "FILE", "Launch EXE when a controller is disconnected")
     .add_newline()
@@ -360,7 +364,7 @@ CommandLineParser::init_ini(Options* opts)
     // uinput stuff
     ("device-name",       boost::bind(&Options::set_device_name, boost::ref(opts), _1))
     ("device-usbid",      boost::bind(&Options::set_device_usbid, boost::ref(opts), _1))
-    ("mouse",             boost::bind(&Options::set_mouse, boost::ref(opts)),             boost::function<void ()>())
+    ("mouse",             boost::bind(&CommandLineParser::mouse, this), boost::function<void ()>())
     ("guitar",            boost::bind(&Options::set_guitar, boost::ref(opts)),            boost::function<void ()>())
     ("trigger-as-button", boost::bind(&Options::set_trigger_as_button, boost::ref(opts)), boost::function<void ()>())
     ("trigger-as-zaxis",  boost::bind(&Options::set_trigger_as_zaxis, boost::ref(opts)),  boost::function<void ()>())
@@ -384,6 +388,7 @@ CommandLineParser::init_ini(Options* opts)
     ("detach",        
      boost::bind(&Options::set_daemon_detach, boost::ref(opts), true),
      boost::bind(&Options::set_daemon_detach, boost::ref(opts), false))
+    ("dbus", &opts->dbus)
     ("pid-file",      &opts->pid_file)
     ("on-connect",    &opts->on_connect)
     ("on-disconnect", &opts->on_disconnect)
@@ -717,7 +722,7 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         break;
 
       case OPTION_MOUSE:
-        opts.get_controller_options().uinput.mouse();
+        mouse();
         break;
 
       case OPTION_GUITAR:
@@ -849,6 +854,10 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
 
       case OPTION_DAEMON_ON_DISCONNECT:
         opts.on_disconnect = opt.argument;
+        break;
+
+      case OPTION_DAEMON_NO_DBUS:
+        opts.dbus = false;
         break;
 
       case OPTION_DEVICE_BY_ID:
@@ -1137,6 +1146,26 @@ CommandLineParser::set_dpad_rotation(const std::string& value)
 }
 
 void
+CommandLineParser::read_buildin_config_file(Options* opts, const std::string& filename, 
+                                            const char* data, unsigned int data_len)
+{
+  log_info("reading 'buildin://" << filename << "'");
+
+  std::string str(data, data_len);
+  std::istringstream in(str);
+  if (!in)
+  {
+    raise_exception(std::runtime_error, "couldn't open: buildin://" << filename);
+  }
+  else
+  {
+    INISchemaBuilder builder(m_ini);
+    INIParser parser(in, builder, filename);
+    parser.run();
+  }
+}
+
+void
 CommandLineParser::read_config_file(Options* opts, const std::string& filename)
 {
   log_info("reading '" << filename << "'");
@@ -1222,6 +1251,15 @@ CommandLineParser::set_axis_sensitivity_n(int controller, int config, const std:
 {
   m_options->controller_slots[controller].get_options(config)
     .sensitivity_map[string2axis(name)] = AxisFilterPtr(new SensitivityAxisFilter(boost::lexical_cast<float>(value)));
+}
+
+void
+CommandLineParser::mouse()
+{
+  read_buildin_config_file(m_options, 
+                           "examples/mouse.xboxdrv",
+                           xboxdrv_vfs::examples_mouse_xboxdrv,
+                           sizeof(xboxdrv_vfs::examples_mouse_xboxdrv));
 }
 
 /* EOF */

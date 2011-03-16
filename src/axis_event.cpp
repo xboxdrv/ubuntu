@@ -22,6 +22,8 @@
 
 #include "evdev_helper.hpp"
 #include "log.hpp"
+#include "helper.hpp"
+#include "raise_exception.hpp"
 #include "uinput.hpp"
 
 AxisEventPtr
@@ -63,6 +65,10 @@ AxisEvent::from_string(const std::string& str)
   else if (token == "rel")
   {
     ev.reset(new AxisEvent(RelAxisEventHandler::from_string(rest)));
+  }
+  else if (token == "rel-repeat")
+  {
+    ev.reset(new AxisEvent(RelRepeatAxisEventHandler::from_string(rest)));
   }
   else if (token == "key")
   {
@@ -193,7 +199,7 @@ RelAxisEventHandler::from_string(const std::string& str)
         break;
 
       case 1:
-        ev->m_value = boost::lexical_cast<int>(*i); 
+        ev->m_value = boost::lexical_cast<float>(*i); 
         break;
 
       case 2:
@@ -216,14 +222,18 @@ RelAxisEventHandler::from_string(const std::string& str)
 RelAxisEventHandler::RelAxisEventHandler() :
   m_code(UIEvent::invalid()),
   m_value(5),
-  m_repeat(10)
+  m_repeat(10),
+  m_stick_value(0.0f),
+  m_rest_value(0.0f)
 {
 }
 
 RelAxisEventHandler::RelAxisEventHandler(int device_id, int code, int repeat, float value) :
   m_code(UIEvent::create(device_id, EV_REL, code)),
   m_value(value),
-  m_repeat(repeat)
+  m_repeat(repeat),
+  m_stick_value(0.0f),
+  m_rest_value(0.0f)
 {
 }
 
@@ -237,23 +247,38 @@ RelAxisEventHandler::init(UInput& uinput, int slot, bool extra_devices)
 void
 RelAxisEventHandler::send(UInput& uinput, int value)
 {
-  float value_f;
   if (value < 0)
-    value_f = static_cast<float>(value) / static_cast<float>(-m_min);
+    m_stick_value = value / static_cast<float>(-m_min);
   else
-    value_f = static_cast<float>(value) / static_cast<float>(m_max);
+    m_stick_value = value / static_cast<float>(m_max);
 
-  float v = m_value * value_f;
+  if (m_repeat != -1)
+  { 
+    // regular old style sending of REL events
+    float v = m_value * m_stick_value;
 
-  if (v == 0)
-    uinput.send_rel_repetitive(m_code, v, -1);
-  else
-    uinput.send_rel_repetitive(m_code, v, m_repeat);
+    if (v == 0)
+      uinput.send_rel_repetitive(m_code, v, -1);
+    else
+      uinput.send_rel_repetitive(m_code, v, m_repeat);
+  }
 }
 
 void
 RelAxisEventHandler::update(UInput& uinput, int msec_delta)
 {
+  if (m_repeat == -1 && m_stick_value != 0.0f)
+  {
+    // new and improved REL style event sending
+
+    float rel_value = m_stick_value * m_value * static_cast<float>(msec_delta) / 1000.0f;
+
+    // keep track of the rest that we lose when converting to integer
+    rel_value += m_rest_value;
+    m_rest_value = rel_value - truncf(rel_value);
+
+    uinput.send_rel(m_code.get_device_id(), m_code.code, static_cast<int>(rel_value));
+  }
 }
 
 std::string
@@ -261,6 +286,92 @@ RelAxisEventHandler::str() const
 {
   std::ostringstream out;
   out << m_code.get_device_id() << "-" << m_code.code << ":" << m_value << ":" << m_repeat;
+  return out.str();
+}
+
+
+RelRepeatAxisEventHandler*
+RelRepeatAxisEventHandler::from_string(const std::string& str)
+{
+  // split string at ':'
+  boost::tokenizer<boost::char_separator<char> > 
+    tokens(str, boost::char_separator<char>(":", "", boost::keep_empty_tokens));
+  std::vector<std::string> args;
+  std::copy(tokens.begin(), tokens.end(), std::back_inserter(args));
+
+  if (args.size() == 3)
+  {
+    return new RelRepeatAxisEventHandler(str2rel_event(args[0]),
+                                         boost::lexical_cast<int>(args[1]),
+                                         boost::lexical_cast<float>(args[2]));
+  }
+  else
+  {
+    raise_exception(std::runtime_error, "must have three arguments");
+  }
+}
+
+RelRepeatAxisEventHandler::RelRepeatAxisEventHandler(const UIEvent& code, int value, int repeat) :
+  m_code(code),
+  m_value(value),
+  m_repeat(repeat),
+  m_stick_value(0),
+  m_timer(0)
+{  
+}
+
+void
+RelRepeatAxisEventHandler::init(UInput& uinput, int slot, bool extra_devices)
+{
+  m_code.resolve_device_id(slot, extra_devices);
+  uinput.add_rel(m_code.get_device_id(), m_code.code);
+}
+
+void
+RelRepeatAxisEventHandler::send(UInput& uinput, int value)
+{
+  if (value < 0)
+  {
+    m_stick_value = value / static_cast<float>(-m_min);
+  }
+  else
+  {
+    m_stick_value = value / static_cast<float>(m_max);
+  }
+
+  // reset timer when in center position
+  if (value == 0)
+  {
+    m_timer = 0;
+  }
+}
+
+void
+RelRepeatAxisEventHandler::update(UInput& uinput, int msec_delta)
+{
+  // time ticks slower depending on how fr the stick is moved
+  m_timer += msec_delta * fabsf(m_stick_value);
+
+  while(m_timer > m_repeat)
+  {
+    if (m_stick_value < 0)
+    {
+      uinput.send_rel(m_code.get_device_id(), m_code.code, -m_value);
+    }
+    else
+    {
+      uinput.send_rel(m_code.get_device_id(), m_code.code, m_value);
+    }
+    
+    m_timer -= m_repeat;
+  }
+}
+
+std::string
+RelRepeatAxisEventHandler::str() const
+{
+  std::ostringstream out;
+  out << "rel-repeat:" << m_value << ":" << m_repeat;
   return out.str();
 }
 
@@ -348,7 +459,7 @@ KeyAxisEventHandler::from_string(const std::string& str)
 {
   typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
   tokenizer tokens(str, boost::char_separator<char>(":", "", boost::keep_empty_tokens));
-
+  
   std::auto_ptr<KeyAxisEventHandler> ev(new KeyAxisEventHandler);
 
   int j = 0;
@@ -363,21 +474,35 @@ KeyAxisEventHandler::from_string(const std::string& str)
           for(tokenizer::iterator m = ev_tokens.begin(); m != ev_tokens.end(); ++m, ++k)
           {
             ev->m_up_codes[k] = str2key_event(*m);
-          }         
+          }
         }
         break;
 
       case 1:
         {
-          tokenizer ev_tokens(*i, boost::char_separator<char>("+", "", boost::keep_empty_tokens));
-          int k = 0;
-          for(tokenizer::iterator m = ev_tokens.begin(); m != ev_tokens.end(); ++m, ++k)
+          if (is_number(*i))
           {
-            ev->m_down_codes[k] = str2key_event(*m);
+            // bit of hackery to handle simplified syntax for trigger button that don't need up/down events
+            ev->m_threshold = boost::lexical_cast<int>(*i);
+
+            for(int k = 0; ev->m_up_codes[k].is_valid(); ++k)
+            {
+              ev->m_down_codes[k] = ev->m_up_codes[k];
+              ev->m_up_codes[k] = UIEvent::invalid();
+            }
+          }
+          else
+          {
+            tokenizer ev_tokens(*i, boost::char_separator<char>("+", "", boost::keep_empty_tokens));
+            int k = 0;
+            for(tokenizer::iterator m = ev_tokens.begin(); m != ev_tokens.end(); ++m, ++k)
+            {
+              ev->m_down_codes[k] = str2key_event(*m);
+            }
           }
         }
         break;
-
+        
       case 2:
         ev->m_threshold = boost::lexical_cast<int>(*i);
         break;
@@ -399,7 +524,7 @@ KeyAxisEventHandler::KeyAxisEventHandler() :
   m_old_value(0),
   m_up_codes(),
   m_down_codes(),
-  m_threshold(8000)
+  m_threshold(8000) // FIXME: this doesn't work for triggers
 {
   std::fill_n(m_up_codes,   MAX_MODIFIER+1, UIEvent::invalid());
   std::fill_n(m_down_codes, MAX_MODIFIER+1, UIEvent::invalid());
@@ -429,7 +554,7 @@ KeyAxisEventHandler::send(UInput& uinput, int value)
   { // entering bigger then threshold zone
     if (value < 0)
     {
-      for(int i = 0; m_up_codes[i].is_valid(); ++i)
+      for(int i = 0; m_down_codes[i].is_valid(); ++i)
         uinput.send_key(m_down_codes[i].get_device_id(), m_down_codes[i].code, false);
 
       for(int i = 0; m_up_codes[i].is_valid(); ++i)
@@ -437,7 +562,7 @@ KeyAxisEventHandler::send(UInput& uinput, int value)
     }
     else // (value > 0)
     { 
-      for(int i = 0; m_up_codes[i].is_valid(); ++i)
+      for(int i = 0; m_down_codes[i].is_valid(); ++i)
         uinput.send_key(m_down_codes[i].get_device_id(), m_down_codes[i].code, true);
 
       for(int i = 0; m_up_codes[i].is_valid(); ++i)
@@ -447,7 +572,7 @@ KeyAxisEventHandler::send(UInput& uinput, int value)
   else if (::abs(m_old_value) >= m_threshold &&
            ::abs(value)       <  m_threshold)
   { // entering zero zone
-    for(int i = 0; m_up_codes[i].is_valid(); ++i)
+    for(int i = 0; m_down_codes[i].is_valid(); ++i)
       uinput.send_key(m_down_codes[i].get_device_id(), m_down_codes[i].code, false);
 
     for(int i = 0; m_up_codes[i].is_valid(); ++i)

@@ -61,6 +61,7 @@ Options::Options() :
   headset_dump(),
   headset_play(),
   detach(false),
+  dbus(true),
   pid_file(),
   on_connect(),
   on_disconnect(),
@@ -222,12 +223,6 @@ Options::set_toggle_button(const std::string& str)
     config_toggle_button = string2btn(str);
     config_toggle_button_is_set = true;
   }
-}
-
-void
-Options::set_mouse()
-{
-  get_controller_options().uinput.mouse();
 }
 
 void

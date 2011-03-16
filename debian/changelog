@@ -1,8 +1,20 @@
-xboxdrv (0.7.2-1~lucid1) lucid; urgency=low
+xboxdrv (0.7.3-1~lucid1) lucid; urgency=low
 
-  * xboxdrv 0.7.2 backport
+  * xboxdrv 0.7.3 backport
 
- -- Ingo Ruhnke <grumbel@gmx.de>  Sun, 06 Mar 2011 13:26:00 +0100
+ -- Ingo Ruhnke <grumbel@gmx.de>  Sun, 16 Mar 2011 11:30:00 +0100
+
+xboxdrv (0.7.3-1) maverick; urgency=low
+
+  * xboxdrv 0.7.3 release
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Wed, 16 Mar 2011 11:29:27 +0100
+
+xboxdrv (0.7.2-2) maverick; urgency=low
+
+  * Fixed xboxdrvctl install
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Mon, 07 Mar 2011 05:22:11 +0100
 
 xboxdrv (0.7.2-1) maverick; urgency=low
 
