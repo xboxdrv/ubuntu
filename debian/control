@@ -3,7 +3,7 @@ Section: utils
 Priority: extra
 Maintainer: Ingo Ruhnke <grumbel@gmx.de>
 Build-Depends: scons, libusb-dev, libx11-dev, x11proto-core-dev,
- scons, g++-4.5, libboost1.42-dev, libboost-thread1.42-dev, x11proto-core-dev,
+ scons, g++, libboost1.42-dev, libboost-thread1.42-dev, x11proto-core-dev,
  debhelper (>= 7.4.15ubuntu1)
 Standards-Version: 3.8.4
 Homepage: http://pingus.seul.org/~grumbel/xboxdrv/
