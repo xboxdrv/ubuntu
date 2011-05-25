@@ -22,13 +22,14 @@
 #include "uinput.hpp"
 
 UInputMessageProcessor::UInputMessageProcessor(UInput& uinput, 
-                                                 ControllerSlotConfigPtr config, 
-                                                 const Options& opts) :
+                                               ControllerSlotConfigPtr config, 
+                                               const Options& opts) :
   m_uinput(uinput),
   m_config(config),
   m_oldmsg(),
   m_config_toggle_button(opts.config_toggle_button),
   m_rumble_gain(opts.rumble_gain),
+  m_rumble_test(opts.rumble),
   m_rumble_callback()
 {
   memset(&m_oldmsg, 0, sizeof(m_oldmsg));
@@ -43,9 +44,15 @@ UInputMessageProcessor::send(const XboxGenericMsg& msg_in, int msec_delta)
 {
   if (!m_config->empty())
   {
-    boost::mutex::scoped_lock lock(m_uinput.get_mutex());
-
     XboxGenericMsg msg = msg_in; 
+
+    if (m_rumble_test)
+    {
+      log_debug("rumble: " << get_axis(msg, XBOX_AXIS_LT) << " " << get_axis(msg, XBOX_AXIS_RT));
+
+      set_rumble(get_axis(msg, XBOX_AXIS_LT), 
+                 get_axis(msg, XBOX_AXIS_RT));
+    }
 
     // handling switching of configurations
     if (m_config_toggle_button != XBOX_BTN_UNKNOWN)
@@ -73,7 +80,6 @@ UInputMessageProcessor::send(const XboxGenericMsg& msg_in, int msec_delta)
       (*i)->update(msec_delta, msg);
     }
 
-    m_uinput.update(msec_delta);
     m_config->get_config()->get_uinput().update(msec_delta);
 
     // send current Xbox state to uinput
@@ -111,6 +117,7 @@ UInputMessageProcessor::set_config(int num)
 void
 UInputMessageProcessor::set_ff_callback(const boost::function<void (uint8_t, uint8_t)>& callback)
 {
+  m_rumble_callback = callback;
   m_config->set_ff_callback(callback);
 }
 

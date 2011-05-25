@@ -19,7 +19,8 @@
 #ifndef HEADER_UINPUT_HPP
 #define HEADER_UINPUT_HPP
 
-#include <boost/thread/mutex.hpp>
+#include <glib.h>
+#include <map>
 
 #include "axis_event.hpp"
 #include "linux_uinput.hpp"
@@ -70,14 +71,20 @@ private:
 
   std::map<UIEvent, RelRepeat> m_rel_repeat_lst;
 
-  boost::mutex m_mutex;
   bool m_extra_events;
+
+  guint m_timeout_id;
+  GTimer* m_timer;
 
 public:
   UInput(bool extra_events);
   ~UInput();
 
-  void update(int msec_delta);
+  /** guess the number of the next unused /dev/input/jsX device */
+  static int  find_jsdev_number();
+
+  /** guess the number of the next unused /dev/input/eventX device */
+  static int  find_evdev_number();
 
   void set_device_names(const std::map<uint32_t, std::string>& device_names);
   void set_device_usbids(const std::map<uint32_t, struct input_id>& device_usbids);
@@ -108,9 +115,9 @@ public:
   void sync();
   /** @} */
 
-  boost::mutex& get_mutex() { return m_mutex; }
-
 private:
+  void update(int msec_delta);
+
   /** create a LinuxUinput with the given device_id, if some already
       exist return a pointer to it */
   LinuxUinput* create_uinput_device(uint32_t device_id);
@@ -120,6 +127,15 @@ private:
 
   std::string get_device_name(uint32_t device_id) const;
   struct input_id get_device_usbid(uint32_t device_id) const;
+
+  bool on_timeout();
+  static gboolean on_timeout_wrap(gpointer data) {
+    return static_cast<UInput*>(data)->on_timeout();
+  }
+
+private:
+  UInput(const UInput&);
+  UInput& operator=(const UInput&);
 };
 
 #endif

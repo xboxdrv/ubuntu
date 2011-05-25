@@ -23,7 +23,6 @@
 #include <string>
 #include <memory>
 
-#include "usb_read_thread.hpp"
 #include "controller.hpp"
 
 class USBController : public Controller
@@ -32,11 +31,11 @@ protected:
   libusb_device* m_dev;
   libusb_device_handle* m_handle;
 
+  libusb_transfer* m_read_transfer;
+
   std::string m_usbpath;
   std::string m_usbid;
   std::string m_name;
-
-  std::auto_ptr<USBReadThread> m_read_thread;
 
 public:
   USBController(libusb_device* dev);
@@ -46,11 +45,39 @@ public:
   virtual std::string get_usbid() const;
   virtual std::string get_name() const;
 
+  virtual bool parse(uint8_t* data, int len, XboxGenericMsg* msg_out) =0;
+
+  int  usb_find_ep(int direction, uint8_t if_class, uint8_t if_subclass, uint8_t if_protocol);
+
   void usb_claim_interface(int ifnum, bool try_detach);
   void usb_release_interface(int ifnum);
-  int  usb_read(int endpoint, uint8_t* data, int len, int timeout);
+
+  void usb_submit_read(int endpoint, int len);
+  void usb_cancel_read();
+
   void usb_write(int endpoint, uint8_t* data, int len);
-  int  usb_find_ep(int direction, uint8_t if_class, uint8_t if_subclass, uint8_t if_protocol);
+  void usb_control(uint8_t bmRequestType, uint8_t  bRequest,
+                   uint16_t wValue, uint16_t wIndex,
+                   uint8_t* data, uint16_t len);
+
+private:
+  void on_read_data(libusb_transfer *transfer);
+  static void on_read_data_wrap(libusb_transfer *transfer)
+  {
+    static_cast<USBController*>(transfer->user_data)->on_read_data(transfer);
+  }
+
+  void on_write_data(libusb_transfer *transfer);
+  static void on_write_data_wrap(libusb_transfer *transfer)
+  {
+    static_cast<USBController*>(transfer->user_data)->on_write_data(transfer);
+  }
+
+  void on_control(libusb_transfer* transfer);
+  static void on_control_wrap(libusb_transfer* transfer)
+  {
+    static_cast<USBController*>(transfer->user_data)->on_control(transfer);
+  }
 
 private:
   USBController(const USBController&);

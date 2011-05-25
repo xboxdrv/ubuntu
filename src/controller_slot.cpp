@@ -20,54 +20,50 @@
 
 #include <boost/format.hpp>
 
-ControllerSlot::ControllerSlot() :
-  m_id(),
-  m_config(),
-  m_rules(),
-  m_led_status(-1),
-  m_thread()  
-{}
+#include "uinput_message_processor.hpp"
+#include "dummy_message_processor.hpp"
 
 ControllerSlot::ControllerSlot(int id_,
                                ControllerSlotConfigPtr config_,
                                std::vector<ControllerMatchRulePtr> rules_,
                                int led_status_,
-                               ControllerThreadPtr thread_) :
+                               const Options& opts,
+                               UInput* uinput) :
   m_id(id_),
   m_config(config_),
   m_rules(rules_),
   m_led_status(led_status_),
-  m_thread(thread_)
+  m_thread(),
+  m_opts(opts),
+  m_uinput(uinput)
 {}
 
 void
-ControllerSlot::connect(ControllerThreadPtr thread)
+ControllerSlot::connect(ControllerPtr controller)
 {
   assert(!m_thread);
-  m_thread = thread;
-}
 
-ControllerThreadPtr
-ControllerSlot::disconnect()
-{
-  ControllerThreadPtr thread = m_thread;
-  m_thread.reset();
-  return thread;
-}
-
-bool
-ControllerSlot::can_disconnect()
-{
-  assert(m_thread);
-
-  if (m_thread->try_join_thread())
+  std::auto_ptr<MessageProcessor> message_proc;
+  if (m_uinput)
   {
-    return true;
+    message_proc.reset(new UInputMessageProcessor(*m_uinput, m_config, m_opts));
   }
   else
   {
-    return false;
+    message_proc.reset(new DummyMessageProcessor());
   }
+  m_thread.reset(new ControllerThread(controller, message_proc, m_opts));
+}
+
+ControllerPtr
+ControllerSlot::disconnect()
+{
+  assert(m_thread);
+
+  ControllerPtr controller = m_thread->get_controller();
+  m_thread.reset();
+
+  return controller;
 }
 
 bool

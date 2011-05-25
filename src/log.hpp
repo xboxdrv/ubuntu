@@ -42,7 +42,10 @@ public:
     kInfo,
 
     /** extra verbose debugging messages */
-    kDebug
+    kDebug,
+
+    /** temporary extra verbose debugging messages */
+    kTemp
   };
 
 private:
@@ -92,6 +95,25 @@ public:
     x6ac1c382 << log_pretty_print(__PRETTY_FUNCTION__) << ": " << text; \
     g_logger.append_unchecked(Logger::kError, x6ac1c382.str()); \
   } \
+} while(false)
+
+/** Write an empty debug message, thus only class and function
+    name are visible, log level is ignored, messages are always
+    printed. Use for temporary messages in development that should not
+    be part of final release. */
+#define log_tmp_trace() do { \
+    std::ostringstream x6ac1c382; \
+    x6ac1c382 << log_pretty_print(__PRETTY_FUNCTION__); \
+    g_logger.append_unchecked(Logger::kTemp, x6ac1c382.str()); \
+} while(false)
+
+/** Write an debug message, while ignoring the log level. Use for
+    temporary messages in development that should not be part of final
+    release. */
+#define log_tmp(text) do { \
+    std::ostringstream x6ac1c382; \
+    x6ac1c382 << log_pretty_print(__PRETTY_FUNCTION__) << ": " << text; \
+    g_logger.append_unchecked(Logger::kTemp, x6ac1c382.str()); \
 } while(false)
 
 extern Logger g_logger;
