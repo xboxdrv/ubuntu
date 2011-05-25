@@ -36,10 +36,12 @@ XboxController::XboxController(libusb_device* dev, bool try_detach) :
   m_endpoint_out = usb_find_ep(LIBUSB_ENDPOINT_OUT, 88, 66, 0);
   
   usb_claim_interface(0, try_detach);
+  usb_submit_read(m_endpoint_in, 32);
 }
 
 XboxController::~XboxController()
 {
+  usb_cancel_read();
   usb_release_interface(0);
 }
 
@@ -63,26 +65,12 @@ XboxController::set_led(uint8_t status)
 }
 
 bool
-XboxController::read(XboxGenericMsg& msg, int timeout)
+XboxController::parse(uint8_t* data, int len, XboxGenericMsg* msg_out)
 {
-  // FIXME: Add tracking for duplicate data packages (send by logitech controller)
-  uint8_t data[32];
-  int len = 0;
-  int ret = libusb_interrupt_transfer(m_handle, LIBUSB_ENDPOINT_IN | m_endpoint_in,
-                                      data, sizeof(data), &len, timeout);
-
-  if (ret == LIBUSB_ERROR_TIMEOUT)
+  if (len == 20 && data[0] == 0x00 && data[1] == 0x14)
   {
-    return false;
-  }
-  else if (ret != LIBUSB_SUCCESS)
-  {
-    raise_exception(std::runtime_error, "libusb_interrupt_transfer() failed: " << usb_strerror(ret));
-  }
-  else if (len == 20 && data[0] == 0x00 && data[1] == 0x14)
-  {
-    msg.type = XBOX_MSG_XBOX;
-    memcpy(&msg.xbox, data, sizeof(XboxMsg));
+    msg_out->type = XBOX_MSG_XBOX;
+    memcpy(&msg_out->xbox, data, sizeof(XboxMsg));
     return true;
   }
   else

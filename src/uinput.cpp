@@ -18,9 +18,11 @@
 
 #include "uinput.hpp"
 
-#include <iostream>
-#include <stdexcept>
 #include <boost/tokenizer.hpp>
+#include <iostream>
+#include <math.h>
+#include <stdexcept>
+#include <stdio.h>
 
 #include "helper.hpp"
 #include "log.hpp"
@@ -102,9 +104,28 @@ UInput::UInput(bool extra_events) :
   m_device_names(),
   m_device_usbids(),
   m_rel_repeat_lst(),
-  m_mutex(),
-  m_extra_events(extra_events)
+  m_extra_events(extra_events),
+  m_timeout_id(),
+  m_timer(g_timer_new())
 {
+  // FIXME: hardcoded timeout is kind of evil
+  // FIXME: would be nicer if UInput didn't depend on glib
+  m_timeout_id = g_timeout_add(10, &UInput::on_timeout_wrap, this);
+}
+
+UInput::~UInput()
+{
+  g_source_remove(m_timeout_id);
+  g_timer_destroy(m_timer);
+}
+
+bool
+UInput::on_timeout()
+{
+  int msec_delta = static_cast<int>(g_timer_elapsed(m_timer, NULL) * 1000.0f);
+  g_timer_reset(m_timer);
+  update(msec_delta);
+  return true;  // do not remove the callback
 }
 
 struct input_id
@@ -297,10 +318,6 @@ UInput::create_uinput_device(uint32_t device_id)
   }
 }
 
-UInput::~UInput()
-{
-}
-
 void
 UInput::add_key(uint32_t device_id, int ev_code)
 {
@@ -477,5 +494,35 @@ UInput::set_ff_callback(int device_id, const boost::function<void (uint8_t, uint
 {
   get_uinput(device_id)->set_ff_callback(callback);
 }
+
+int
+UInput::find_jsdev_number()
+{
+  for(int i = 0; ; ++i)
+  {
+    char filename1[32];
+    char filename2[32];
 
+    sprintf(filename1, "/dev/input/js%d", i);
+    sprintf(filename2, "/dev/js%d", i);
+
+    if (access(filename1, F_OK) != 0 && access(filename2, F_OK) != 0)
+      return i;
+  }
+}
+
+int
+UInput::find_evdev_number()
+{
+  for(int i = 0; ; ++i)
+  {
+    char filename[32];
+
+    sprintf(filename, "/dev/input/event%d", i);
+
+    if (access(filename, F_OK) != 0)
+      return i;
+  }
+}
+
 /* EOF */

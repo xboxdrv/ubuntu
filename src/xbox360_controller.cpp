@@ -23,6 +23,7 @@
 #include "helper.hpp"
 #include "options.hpp"
 #include "raise_exception.hpp"
+#include "unpack.hpp"
 #include "usb_helper.hpp"
 
 Xbox360Controller::Xbox360Controller(libusb_device* dev,
@@ -46,8 +47,8 @@ Xbox360Controller::Xbox360Controller(libusb_device* dev,
   log_debug("EP(IN):  " << endpoint_in);
   log_debug("EP(OUT): " << endpoint_out);
 
-  // claim interface
   usb_claim_interface(0, try_detach);
+  usb_submit_read(endpoint_in, 32);
 
   // create chatpad
   if (chatpad)
@@ -57,24 +58,33 @@ Xbox360Controller::Xbox360Controller(libusb_device* dev,
     int ret = libusb_get_device_descriptor(dev, &desc);
     if (ret != LIBUSB_SUCCESS)
     {
-      raise_exception(std::runtime_error, "libusb_get_config_descriptor() failed: " << usb_strerror(ret));    }
+      raise_exception(std::runtime_error, "libusb_get_config_descriptor() failed: " << usb_strerror(ret));    
+    }
     else
     {
       m_chatpad.reset(new Chatpad(m_handle, desc.bcdDevice, chatpad_no_init, chatpad_debug));
-      m_chatpad->send_init();
-      m_chatpad->start_threads();
     }
   }
 
   // create headset
   if (headset)
   {
-    m_headset.reset(new Headset(m_handle, headset_debug, headset_dump, headset_play));
+    m_headset.reset(new Headset(m_handle, headset_debug));
+    if (!headset_play.empty())
+    {
+      m_headset->play_file(headset_play);
+    }
+
+    if (!headset_dump.empty())
+    {
+      m_headset->record_file(headset_dump);
+    }
   }
 }
 
 Xbox360Controller::~Xbox360Controller()
 {
+  usb_cancel_read();
   usb_release_interface(0);
 }
 
@@ -93,16 +103,13 @@ Xbox360Controller::set_led(uint8_t status)
 }
 
 bool
-Xbox360Controller::read(XboxGenericMsg& msg, int timeout)
+Xbox360Controller::parse(uint8_t* data, int len, XboxGenericMsg* msg_out)
 {
-  uint8_t data[32];
-  int len = usb_read(endpoint_in, data, sizeof(data), timeout);
-
   if (len == 0)
   {
     // happens with the Xbox360 controller every now and then, just
     // ignore, seems harmless, so just ignore
-    log_debug("zero length read");
+    //log_debug("zero length read");
   }
   else if (len == 3 && data[0] == 0x01 && data[1] == 0x03)
   { 
@@ -143,8 +150,44 @@ Xbox360Controller::read(XboxGenericMsg& msg, int timeout)
   }
   else if (len == 20 && data[0] == 0x00 && data[1] == 0x14)
   {
-    msg.type    = XBOX_MSG_XBOX360;
-    memcpy(&msg.xbox360, data, sizeof(Xbox360Msg));
+    msg_out->type = XBOX_MSG_XBOX360;
+    Xbox360Msg& msg = msg_out->xbox360;
+
+    msg.type   = data[0];
+    msg.length = data[1];
+
+    msg.dpad_up    = unpack::bit(data+2, 0);
+    msg.dpad_down  = unpack::bit(data+2, 1);
+    msg.dpad_left  = unpack::bit(data+2, 2);
+    msg.dpad_right = unpack::bit(data+2, 3);
+
+    msg.start   = unpack::bit(data+2, 4);
+    msg.back    = unpack::bit(data+2, 5);
+    msg.thumb_l = unpack::bit(data+2, 6);
+    msg.thumb_r = unpack::bit(data+2, 7);
+
+    msg.lb     = unpack::bit(data+3, 0);
+    msg.rb     = unpack::bit(data+3, 1);
+    msg.guide  = unpack::bit(data+3, 2);
+    msg.dummy1 = unpack::bit(data+3, 3);
+
+    msg.a = unpack::bit(data+3, 4);
+    msg.b = unpack::bit(data+3, 5);
+    msg.x = unpack::bit(data+3, 6);
+    msg.y = unpack::bit(data+3, 7);
+
+    msg.lt = data[4];
+    msg.rt = data[5];
+
+    msg.x1 = unpack::int16le(data+6);
+    msg.y1 = unpack::int16le(data+8);
+
+    msg.x2 = unpack::int16le(data+10);
+    msg.y2 = unpack::int16le(data+12);
+
+    msg.dummy2 = unpack::int32le(data+14);
+    msg.dummy3 = unpack::int16le(data+18);
+
     return true;
   }
   else

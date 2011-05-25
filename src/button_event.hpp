@@ -41,7 +41,7 @@ public:
   static ButtonEventPtr create_key();
   static ButtonEventPtr create_abs(int code);
   static ButtonEventPtr create_rel(int code);
-  static ButtonEventPtr from_string(const std::string& str);
+  static ButtonEventPtr from_string(const std::string& str, const std::string& directory);
 
 protected:
   ButtonEvent(ButtonEventHandler* handler);
@@ -71,131 +71,6 @@ public:
   virtual void send(UInput& uinput, bool value) =0;
   virtual void update(UInput& uinput, int msec_delta) =0;
   virtual std::string str() const =0;
-};
-
-class KeyButtonEventHandler : public ButtonEventHandler
-{
-public:
-  static KeyButtonEventHandler* from_string(const std::string& str);
-
-public:
-  KeyButtonEventHandler();
-  KeyButtonEventHandler(int deviceid, int code);
-
-  void init(UInput& uinput, int slot, bool extra_devices);
-  void send(UInput& uinput, bool value);
-  void update(UInput& uinput, int msec_delta);
-
-  std::string str() const;
-  
-private:
-  static const int MAX_MODIFIER = 4;
-
-  bool m_state;
-  // Array is terminated by !is_valid()
-  UIEvent m_codes[MAX_MODIFIER+1];
-  UIEvent m_secondary_codes[MAX_MODIFIER+1];
-  int m_hold_threshold;
-  int m_hold_counter;
-};
-
-class AbsButtonEventHandler : public ButtonEventHandler
-{
-public:
-  static AbsButtonEventHandler* from_string(const std::string& str);
-
-public:
-  AbsButtonEventHandler(int code);
-
-  void init(UInput& uinput, int slot, bool extra_devices);
-  void send(UInput& uinput, bool value);
-  void update(UInput& uinput, int msec_delta) {}
-
-  std::string str() const;
-
-private:
-  UIEvent m_code;
-  int m_value;
-};
-
-class RelButtonEventHandler : public ButtonEventHandler
-{
-public:
-  static RelButtonEventHandler* from_string(const std::string& str);
-
-public:
-  RelButtonEventHandler(const UIEvent& code);
-
-  void init(UInput& uinput, int slot, bool extra_devices);
-  void send(UInput& uinput, bool value);
-  void update(UInput& uinput, int msec_delta) {}
-
-  std::string str() const;
-
-private:
-  UIEvent m_code;
-
-  int  m_value;
-  int  m_repeat;
-};
-
-class ExecButtonEventHandler : public ButtonEventHandler
-{
-public:
-  static ExecButtonEventHandler* from_string(const std::string& str);
-
-public:
-  ExecButtonEventHandler(const std::vector<std::string>& args);
-
-  void init(UInput& uinput, int slot, bool extra_devices);
-  void send(UInput& uinput, bool value);
-  void update(UInput& uinput, int msec_delta) {}
-
-  std::string str() const;
-
-private:
-  std::vector<std::string> m_args;
-};
-
-class MacroButtonEventHandler : public ButtonEventHandler
-{
-public:
-private:
-  struct MacroEvent {
-    enum { kSendOp, kWaitOp, kNull } type; 
-    
-    union {
-      struct {
-        UIEvent event;
-        int     value;
-      } send;
-
-      struct {
-        int msec;
-      } wait;
-    };
-  };
-
-public:
-  static MacroButtonEventHandler* from_string(const std::string& str);
-
-public:
-  MacroButtonEventHandler(const std::vector<MacroEvent>& events);
-
-  void init(UInput& uinput, int slot, bool extra_devices);
-  void send(UInput& uinput, bool value);
-  void update(UInput& uinput, int msec_delta);
-
-  std::string str() const;
-
-private:
-  static MacroEvent macro_event_from_string(const std::string& str);
-
-private:
-  std::vector<MacroEvent> m_events;
-  bool m_send_in_progress;
-  int m_countdown;
-  std::vector<MacroEvent>::size_type m_event_counter;
 };
 
 #endif

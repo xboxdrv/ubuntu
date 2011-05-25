@@ -28,8 +28,9 @@
 #include "helper.hpp"
 #include "ini_parser.hpp"
 #include "ini_schema_builder.hpp"
-#include "raise_exception.hpp"
 #include "options.hpp"
+#include "path.hpp"
+#include "raise_exception.hpp"
 #include "ui_event.hpp"
 
 #include "axisfilter/relative_axis_filter.hpp"
@@ -136,7 +137,8 @@ enum {
 CommandLineParser::CommandLineParser() :
   m_argp(),
   m_ini(),
-  m_options()
+  m_options(),
+  m_directory_context()
 {
   init_argp();
 }
@@ -324,12 +326,12 @@ CommandLineParser::init_ini(Options* opts)
   m_ini.clear();
 
   m_ini.section("xboxdrv")
-    ("verbose", boost::bind(&Options::set_verbose, boost::ref(opts)), boost::function<void ()>())
+    ("verbose", boost::bind(&Options::set_verbose, opts), boost::function<void ()>())
     ("silent", &opts->silent)
     ("quiet",  &opts->quiet)
     ("usb-debug",  &opts->usb_debug)
     ("rumble", &opts->rumble)
-    ("led", boost::bind(&Options::set_led, boost::ref(opts), _1))
+    ("led", boost::bind(&Options::set_led, opts, _1))
     ("rumble-l", &opts->rumble_l)
     ("rumble-r", &opts->rumble_r)
     ("rumble-gain", &opts->rumble_gain)
@@ -345,15 +347,15 @@ CommandLineParser::init_ini(Options* opts)
     ("evdev", &opts->evdev_device)
     ("evdev-grab", &opts->evdev_grab)
     ("evdev-debug", &opts->evdev_debug)
-    ("config", boost::bind(&CommandLineParser::read_config_file, this, opts, _1))
-    ("alt-config", boost::bind(&CommandLineParser::read_alt_config_file, this, opts, _1))
+    ("config", boost::bind(&CommandLineParser::read_config_file, this, _1))
+    ("alt-config", boost::bind(&CommandLineParser::read_alt_config_file, this, _1))
     ("timeout", &opts->timeout)
-    ("priority", boost::bind(&Options::set_priority, boost::ref(opts), _1))
-    ("next", boost::bind(&Options::next_config, boost::ref(opts)), boost::function<void ()>())
-    ("next-controller", boost::bind(&Options::next_controller, boost::ref(opts)), boost::function<void ()>())
+    ("priority", boost::bind(&Options::set_priority, opts, _1))
+    ("next", boost::bind(&Options::next_config, opts), boost::function<void ()>())
+    ("next-controller", boost::bind(&Options::next_controller, opts), boost::function<void ()>())
     ("extra-devices", &opts->extra_devices)
     ("extra-events", &opts->extra_events)
-    ("toggle", boost::bind(&Options::set_toggle_button, boost::ref(opts), _1))
+    ("toggle", boost::bind(&Options::set_toggle_button, opts, _1))
 
     ("deadzone", boost::bind(&CommandLineParser::set_deadzone, this, _1))
     ("deadzone-trigger", boost::bind(&CommandLineParser::set_deadzone_trigger, this, _1))
@@ -362,16 +364,16 @@ CommandLineParser::init_ini(Options* opts)
     ("dpad-rotation", boost::bind(&CommandLineParser::set_dpad_rotation, this, _1))
 
     // uinput stuff
-    ("device-name",       boost::bind(&Options::set_device_name, boost::ref(opts), _1))
-    ("device-usbid",      boost::bind(&Options::set_device_usbid, boost::ref(opts), _1))
+    ("device-name",       boost::bind(&Options::set_device_name, opts, _1))
+    ("device-usbid",      boost::bind(&Options::set_device_usbid, opts, _1))
     ("mouse",             boost::bind(&CommandLineParser::mouse, this), boost::function<void ()>())
-    ("guitar",            boost::bind(&Options::set_guitar, boost::ref(opts)),            boost::function<void ()>())
-    ("trigger-as-button", boost::bind(&Options::set_trigger_as_button, boost::ref(opts)), boost::function<void ()>())
-    ("trigger-as-zaxis",  boost::bind(&Options::set_trigger_as_zaxis, boost::ref(opts)),  boost::function<void ()>())
-    ("dpad-as-button",    boost::bind(&Options::set_dpad_as_button, boost::ref(opts)),    boost::function<void ()>())
-    ("dpad-only",         boost::bind(&Options::set_dpad_only, boost::ref(opts)),         boost::function<void ()>())
-    ("force-feedback",    boost::bind(&Options::set_force_feedback, boost::ref(opts), _1))
-    ("mimic-xpad",        boost::bind(&Options::set_mimic_xpad, boost::ref(opts)),        boost::function<void ()>())
+    ("guitar",            boost::bind(&Options::set_guitar, opts),            boost::function<void ()>())
+    ("trigger-as-button", boost::bind(&Options::set_trigger_as_button, opts), boost::function<void ()>())
+    ("trigger-as-zaxis",  boost::bind(&Options::set_trigger_as_zaxis, opts),  boost::function<void ()>())
+    ("dpad-as-button",    boost::bind(&Options::set_dpad_as_button, opts),    boost::function<void ()>())
+    ("dpad-only",         boost::bind(&Options::set_dpad_only, opts),         boost::function<void ()>())
+    ("force-feedback",    boost::bind(&Options::set_force_feedback, opts, _1))
+    ("mimic-xpad",        boost::bind(&Options::set_mimic_xpad, opts),        boost::function<void ()>())
 
     ("chatpad",         &opts->chatpad)
     ("chatpad-no-init", &opts->chatpad_no_init)
@@ -381,13 +383,13 @@ CommandLineParser::init_ini(Options* opts)
     ("headset-debug",   &opts->headset_debug)
     ("headset-dump",    &opts->headset_dump)
     ("headset-play",    &opts->headset_play)
-    ("ui-clear",        boost::bind(&Options::set_ui_clear, boost::ref(opts)), boost::function<void ()>())
+    ("ui-clear",        boost::bind(&Options::set_ui_clear, opts), boost::function<void ()>())
     ;
 
   m_ini.section("xboxdrv-daemon")
     ("detach",        
-     boost::bind(&Options::set_daemon_detach, boost::ref(opts), true),
-     boost::bind(&Options::set_daemon_detach, boost::ref(opts), false))
+     boost::bind(&Options::set_daemon_detach, opts, true),
+     boost::bind(&Options::set_daemon_detach, opts, false))
     ("dbus", &opts->dbus)
     ("pid-file",      &opts->pid_file)
     ("on-connect",    &opts->on_connect)
@@ -529,11 +531,11 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         break;
 
       case OPTION_CONFIG:
-        read_config_file(&opts, opt.argument);
+        read_config_file(opt.argument);
         break;
 
       case OPTION_ALT_CONFIG:
-        read_alt_config_file(&opts, opt.argument);
+        read_alt_config_file(opt.argument);
         break;
 
       case OPTION_TEST_RUMBLE:
@@ -712,13 +714,11 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         break;
 
       case OPTION_UI_AXISMAP:
-        process_name_value_string(opt.argument, boost::bind(&UInputOptions::set_ui_axismap, 
-                                                            boost::ref(opts.get_controller_options().uinput), _1, _2));
+        process_name_value_string(opt.argument, boost::bind(&CommandLineParser::set_ui_axismap, this, _1, _2));
         break;
 
       case OPTION_UI_BUTTONMAP:
-        process_name_value_string(opt.argument, boost::bind(&UInputOptions::set_ui_buttonmap, 
-                                                            boost::ref(opts.get_controller_options().uinput), _1, _2));
+        process_name_value_string(opt.argument, boost::bind(&CommandLineParser::set_ui_buttonmap, this, _1, _2));
         break;
 
       case OPTION_MOUSE:
@@ -1022,13 +1022,135 @@ CommandLineParser::set_device_name(const std::string& name, const std::string& v
 void
 CommandLineParser::set_ui_buttonmap(const std::string& name, const std::string& value)
 {
-  m_options->get_controller_options().uinput.set_ui_buttonmap(name, value);
+  set_ui_buttonmap(m_options->get_controller_options().uinput.get_btn_map(),
+                   name, value);
+}
+
+void
+CommandLineParser::set_ui_buttonmap(ButtonMap& btn_map, const std::string& name, const std::string& value)
+{
+  ButtonEventPtr event;
+
+  XboxButton shift = XBOX_BTN_UNKNOWN;
+  XboxButton btn   = XBOX_BTN_UNKNOWN;
+  std::vector<ButtonFilterPtr> filters;
+
+  typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+  tokenizer tokens(name, boost::char_separator<char>("^", "", boost::keep_empty_tokens));
+  int idx = 0;
+  for(tokenizer::iterator t = tokens.begin(); t != tokens.end(); ++t, ++idx)
+  {
+    switch(idx)
+    { 
+      case 0: // shift+key portion
+        {
+          std::string::size_type j = t->find('+');
+          if (j == std::string::npos)
+          {
+            shift = XBOX_BTN_UNKNOWN;
+            btn   = string2btn(*t);
+          }
+          else
+          {
+            shift = string2btn(t->substr(0, j));
+            btn   = string2btn(t->substr(j+1));
+          }
+          
+          if (value.empty())
+          { // if no rhs value is given, add filters to the current binding
+            event = btn_map.lookup(shift, btn);
+          }
+          else
+          {
+            event = ButtonEvent::from_string(value, get_directory_context());
+            if (event)
+            {
+              btn_map.bind(shift, btn, event);
+            }
+          }
+        }
+        break;
+
+      default:
+        { // filter
+          if (event)
+          {
+            event->add_filter(ButtonFilter::from_string(*t));
+          }
+        }
+        break;
+    }
+  }
 }
 
 void
 CommandLineParser::set_ui_axismap(const std::string& name, const std::string& value)
 {
-  m_options->get_controller_options().uinput.set_ui_axismap(name, value);
+  set_ui_axismap(m_options->get_controller_options().uinput.get_axis_map(),
+                 name, value);
+}
+
+void
+CommandLineParser::set_ui_axismap(AxisMap& axis_map, const std::string& name, const std::string& value)
+{
+  AxisEventPtr event;
+
+  XboxButton shift = XBOX_BTN_UNKNOWN;
+  XboxAxis   axis  = XBOX_AXIS_UNKNOWN;
+  std::vector<AxisFilterPtr> filters;
+
+  typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+  tokenizer tokens(name, boost::char_separator<char>("^", "", boost::keep_empty_tokens));
+  int idx = 0;
+  for(tokenizer::iterator t = tokens.begin(); t != tokens.end(); ++t, ++idx)
+  {
+    switch(idx)
+    { 
+      case 0: // shift+key portion
+        {
+          std::string::size_type j = t->find('+');
+          if (j == std::string::npos)
+          {
+            shift = XBOX_BTN_UNKNOWN;
+            axis  = string2axis(*t);
+          }
+          else
+          {
+            shift = string2btn(t->substr(0, j));
+            axis  = string2axis(t->substr(j+1));
+          }
+          
+          if (value.empty())
+          { // if no rhs value is given, add filters to the current binding
+            event = axis_map.lookup(shift, axis);
+          }
+          else
+          {
+            event = AxisEvent::from_string(value);
+            if (event)
+            {
+              if (axis != XBOX_AXIS_UNKNOWN)
+              {
+                event->set_axis_range(get_axis_min(axis),
+                                      get_axis_max(axis));
+              }
+
+              axis_map.bind(shift, axis, event);
+            }
+          }
+        }
+        break;
+
+      default:
+        { // filter
+          if (event)
+          {
+            event->add_filter(AxisFilter::from_string(*t));
+          }
+        }
+        break;
+    }
+  }
 }
 
 void
@@ -1146,7 +1268,7 @@ CommandLineParser::set_dpad_rotation(const std::string& value)
 }
 
 void
-CommandLineParser::read_buildin_config_file(Options* opts, const std::string& filename, 
+CommandLineParser::read_buildin_config_file(const std::string& filename, 
                                             const char* data, unsigned int data_len)
 {
   log_info("reading 'buildin://" << filename << "'");
@@ -1166,7 +1288,7 @@ CommandLineParser::read_buildin_config_file(Options* opts, const std::string& fi
 }
 
 void
-CommandLineParser::read_config_file(Options* opts, const std::string& filename)
+CommandLineParser::read_config_file(const std::string& filename)
 {
   log_info("reading '" << filename << "'");
 
@@ -1177,31 +1299,35 @@ CommandLineParser::read_config_file(Options* opts, const std::string& filename)
   }
   else
   {
+    m_directory_context.push_back(path::dirname(filename));
+
     INISchemaBuilder builder(m_ini);
     INIParser parser(in, builder, filename);
     parser.run();
+
+    m_directory_context.pop_back();
   }
 }
 
 void
-CommandLineParser::read_alt_config_file(Options* opts, const std::string& filename)
+CommandLineParser::read_alt_config_file(const std::string& filename)
 {
-  opts->next_config();
-  read_config_file(opts, filename);
+  m_options->next_config();
+  read_config_file(filename);
 }
 
 void
 CommandLineParser::set_ui_buttonmap_n(int controller, int config, const std::string& name, const std::string& value)
 {
-  m_options->controller_slots[controller].get_options(config)
-    .uinput.set_ui_buttonmap(name, value);
+  set_ui_buttonmap(m_options->controller_slots[controller].get_options(config).uinput.get_btn_map(),
+                   name, value);
 }
 
 void
 CommandLineParser::set_ui_axismap_n(int controller, int config, const std::string& name, const std::string& value)
 {
-  m_options->controller_slots[controller].get_options(config)
-    .uinput.set_ui_axismap(name, value);
+  set_ui_axismap(m_options->controller_slots[controller].get_options(config).uinput.get_axis_map(),
+                 name, value);
 }
 
 void
@@ -1256,10 +1382,22 @@ CommandLineParser::set_axis_sensitivity_n(int controller, int config, const std:
 void
 CommandLineParser::mouse()
 {
-  read_buildin_config_file(m_options, 
-                           "examples/mouse.xboxdrv",
+  read_buildin_config_file("examples/mouse.xboxdrv",
                            xboxdrv_vfs::examples_mouse_xboxdrv,
                            sizeof(xboxdrv_vfs::examples_mouse_xboxdrv));
+}
+
+std::string
+CommandLineParser::get_directory_context() const
+{
+  if (m_directory_context.empty())
+  {
+    return std::string();
+  }
+  else
+  {
+    return m_directory_context.back();
+  }
 }
 
 /* EOF */

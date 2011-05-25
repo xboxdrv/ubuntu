@@ -20,14 +20,16 @@
 #define HEADER_XBOXDRV_XBOXDRV_DAEMON_HPP
 
 #include <libudev.h>
+#include <boost/scoped_ptr.hpp>
 #include <glib.h>
 
 #include "controller_slot_config.hpp"
-#include "controller_slot.hpp"
+#include "controller_slot_ptr.hpp"
+#include "controller_ptr.hpp"
 
 class Options;
 class UInput;
-class ControllerThread;
+class USBGSource;
 struct XPadDevice;
 
 class XboxdrvDaemon
@@ -35,19 +37,18 @@ class XboxdrvDaemon
 private:
   static XboxdrvDaemon* s_current;
 
+private:
   const Options& m_opts;
-  struct udev* m_udev;
-  struct udev_monitor* m_monitor;
- 
+  GMainLoop* m_gmain;
+
   typedef std::vector<ControllerSlotPtr> ControllerSlots;
   ControllerSlots m_controller_slots;
   
-  typedef std::vector<ControllerThreadPtr> Threads;
-  Threads m_inactive_threads;
+  typedef std::vector<ControllerPtr> Controllers;
+  Controllers m_inactive_controllers;
 
   std::auto_ptr<UInput> m_uinput;
-  GMainLoop* m_gmain;
-
+  
 private:
   static void on_sigint(int);
   static XboxdrvDaemon* current() { return s_current; }
@@ -56,48 +57,43 @@ public:
   XboxdrvDaemon(const Options& opts);
   ~XboxdrvDaemon();
 
-  void run(const Options& opts);
+  void run();
 
   std::string status();
   void shutdown();
 
 private:
-  void create_pid_file(const Options& opts);
-  void init_uinput(const Options& opts);
-  void init_udev();
-  void init_udev_monitor(const Options& opts);
+  void create_pid_file();
+  void init_uinput();
 
-  void init_g_udev();
-  void init_g_dbus();
-
-  std::vector<ControllerSlotPtr> find_compatible_slots(udev_device* dev);
   ControllerSlotPtr find_free_slot(udev_device* dev);
-  ControllerSlotPtr find_free_slot(ControllerThreadPtr thread);
 
-  void enumerate_udev_devices(const Options& opts);
-  void cleanup_threads();
-  void process_match(const Options& opts, struct udev_device* device);
+  void process_match(struct udev_device* device);
   void print_info(struct udev_device* device);
   void launch_controller_thread(udev_device* dev,
-                                const XPadDevice& dev_type, const Options& opts, 
+                                const XPadDevice& dev_type, 
                                 uint8_t busnum, uint8_t devnum);
   int get_free_slot_count() const;
-  void check_thread_status();
   
-  void connect(ControllerSlotPtr slot, ControllerThreadPtr thread);
-  ControllerThreadPtr disconnect(ControllerSlotPtr slot);
+  void connect(ControllerSlotPtr slot, ControllerPtr controller);
+  ControllerPtr disconnect(ControllerSlotPtr slot);
 
   void on_connect(ControllerSlotPtr slot);
   void on_disconnect(ControllerSlotPtr slot);
 
-  void wakeup();
-
-  bool on_wakeup();
-  bool on_udev_data(GIOChannel* channel, GIOCondition condition);
+  void on_controller_disconnect();
+  void on_controller_activate();
 
 private:
-  static gboolean on_udev_data_wrap(GIOChannel* channel, GIOCondition condition, gpointer data);
-  static gboolean on_wakeup_wrap(gpointer data);
+  static gboolean on_controller_disconnect_wrap(gpointer data) {
+    static_cast<XboxdrvDaemon*>(data)->on_controller_disconnect();
+    return false;
+  }
+
+  static gboolean on_controller_activate_wrap(gpointer data) {
+    static_cast<XboxdrvDaemon*>(data)->on_controller_activate();
+    return false;
+  }
 
 private:
   XboxdrvDaemon(const XboxdrvDaemon&);

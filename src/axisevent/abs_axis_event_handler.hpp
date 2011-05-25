@@ -16,25 +16,30 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef HEADER_XBOXDRV_WAKEUP_PIPE_HPP
-#define HEADER_XBOXDRV_WAKEUP_PIPE_HPP
+#ifndef HEADER_XBOXDRV_AXISEVENT_ABS_AXIS_EVENT_HANDLER_HPP
+#define HEADER_XBOXDRV_AXISEVENT_ABS_AXIS_EVENT_HANDLER_HPP
 
-class WakeupPipe
+#include "axis_event.hpp"
+
+class AbsAxisEventHandler : public AxisEventHandler
 {
-private:
-  int m_pipefd[2];
+public:
+  static AbsAxisEventHandler* from_string(const std::string& str);
 
 public:
-  WakeupPipe();
+  AbsAxisEventHandler();
+  AbsAxisEventHandler(const UIEvent& code, int min, int max, int fuzz, int flat);
 
-  int get_read_fd() const;
-  int get_write_fd() const;
+  void init(UInput& uinput, int slot, bool extra_devices);
+  void send(UInput& uinput, int value);
+  void update(UInput& uinput, int msec_delta);
 
-  void send_wakeup();
+  std::string str() const;
 
 private:
-  WakeupPipe(const WakeupPipe&);
-  WakeupPipe& operator=(const WakeupPipe&);
+  UIEvent m_code;
+  int m_fuzz;
+  int m_flat;
 };
 
 #endif

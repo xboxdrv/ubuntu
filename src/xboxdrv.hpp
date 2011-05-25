@@ -38,20 +38,6 @@ private:
   void run_help_devices();
   void run_list_controller();
 
-  void print_info(libusb_device* dev,
-                  const XPadDevice& dev_type,
-                  const Options& opts) const;
-
-  bool find_controller_by_path(const std::string& busid, const std::string& devid,
-                               libusb_device** xbox_device) const;
-  void find_controller(libusb_device** dev,
-                       XPadDevice& dev_type,
-                       const Options& opts) const;
-  int  find_jsdev_number() const;
-  int  find_evdev_number() const;
-  bool find_controller_by_id(int id, int vendor_id, int product_id, libusb_device** xbox_device) const;
-  bool find_xbox360_controller(int id, libusb_device** xbox_device, XPadDevice* type) const;
-
   void print_copyright() const;
 
 public:

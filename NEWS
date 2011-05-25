@@ -1,3 +1,23 @@
+xboxdrv 0.8.0 - (26/May/2011)
+=============================
+
+* added --no-dbus option
+* added ABS/axis support to macros
+* added Street Fighter Fightpad support
+* added example config for Microsoft Ergonomic 4000 zoom wheel
+* added example config for Star Wars: Tie Fighter
+* added rel-repeat value of -1 for sending an event only once
+* added support for chatpad on bcdVersion 1.14 controller
+* added support for relative filenames for macros
+* fixed daemon mode
+* fixed deadzone filter issues with MIN:MAX:SMOOTH
+* fixed endian issues in Xbox360 and Xbox360 wireless controller
+* fixed wireless controller not getting reset to neutral position on disconnected
+* changed the meaning of --timeout 0
+* removed boost::thread dependency
+* switched from threads to asynchronous USB handling and glib
+
+
 xboxdrv 0.7.3 - (16/Mar/2011)
 =============================
 
@@ -5,10 +25,10 @@ xboxdrv 0.7.3 - (16/Mar/2011)
 * added special REL repeat value '-1' to avoid jaggy mouse emulation movement
 * added "rel-repeat:" axis-event for better scroll wheel emulation
 * added --no-dbus, to disable D-Bus support
-* reenabled USBReadThread to work around ignored input events
-* '--daemon' is broken in this release
 * added xbmc.xboxdrv, a config fine tuned for XBMC
 * added zsnes.xboxdrv, a config file for ZSNES
+* reenabled USBReadThread to work around ignored input events
+* '--daemon' is broken in this release
 
 
 xboxdrv 0.7.2 - (06/Mar/2011)
