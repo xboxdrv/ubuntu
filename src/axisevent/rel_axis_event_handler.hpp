@@ -16,45 +16,35 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "wakeup_pipe.hpp"
+#ifndef HEADER_XBOXDRV_AXISEVENT_REL_AXIS_EVENT_HANDLER_HPP
+#define HEADER_XBOXDRV_AXISEVENT_REL_AXIS_EVENT_HANDLER_HPP
 
-#include <errno.h>
-#include <stdexcept>
-#include <string.h>
-#include <unistd.h>
+#include "axis_event.hpp"
 
-#include "raise_exception.hpp"
-
-WakeupPipe::WakeupPipe()
+class RelAxisEventHandler : public AxisEventHandler
 {
-  int ret = pipe(m_pipefd);
-  if (ret < 0)
-  {
-    raise_exception(std::runtime_error, "pipe() failed: " << strerror(errno));
-  }
-}
+public:
+  static RelAxisEventHandler* from_string(const std::string& str);
 
-int
-WakeupPipe::get_read_fd() const
-{
-  return m_pipefd[0];
-}
+public:
+  RelAxisEventHandler();
+  RelAxisEventHandler(int device_id, int code, int repeat = 10, float value = 5);
 
-int
-WakeupPipe::get_write_fd() const
-{
-  return m_pipefd[1];
-}
+  void init(UInput& uinput, int slot, bool extra_devices);
+  void send(UInput& uinput, int value);
+  void update(UInput& uinput, int msec_delta);
 
-void
-WakeupPipe::send_wakeup()
-{
-  char buf[1] = {0};
-  ssize_t ret = write(get_write_fd(), buf, sizeof(buf));
-  if (ret < 0)
-  {
-    raise_exception(std::runtime_error, "write() to pipe failed: " << strerror(errno));
-  }
-}
+  std::string str() const;
+
+private:
+  UIEvent m_code;
+  float   m_value;
+  int     m_repeat;
+
+  float   m_stick_value;
+  float   m_rest_value;
+};
+
+#endif
 
 /* EOF */

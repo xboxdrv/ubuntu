@@ -101,6 +101,7 @@ if 'BUILD' in env and env['BUILD'] == 'development':
                             "-Werror",
                             "-Wnon-virtual-dtor",
                             "-Weffc++",
+                            # "-Wunreachable-code",
                             # "-Wconversion",
                             "-Wold-style-cast",
                             "-Wshadow",
@@ -135,16 +136,6 @@ if not conf.CheckLibWithHeader('X11', 'X11/Xlib.h', 'C++'):
     print 'libx11-dev must be installed!'
     Exit(1)
 
-# boost-thread checks
-if not conf.CheckCXXHeader('boost/thread/thread.hpp'):
-    print 'libboost-thread-dev must be installed!'
-    Exit(1)
-
-if not conf.CheckLib('boost_thread-mt', language='C++'):
-    if not conf.CheckLib('boost_thread', language='C++'):
-        print 'libboost-thread-dev must be installed!'
-        Exit(1)
-
 env = conf.Finish()
 
 env.Bin2H("src/xboxdrv_vfs.hpp", [
@@ -159,6 +150,8 @@ libxboxdrv = env.StaticLibrary('xboxdrv',
                                Glob('src/*.cpp') +
                                Glob('src/axisfilter/*.cpp') +
                                Glob('src/buttonfilter/*.cpp') +
+                               Glob('src/axisevent/*.cpp') +
+                               Glob('src/buttonevent/*.cpp') +
                                Glob('src/modifier/*.cpp'))
 env.Append(LIBS = libxboxdrv)
 

@@ -19,12 +19,16 @@
 #ifndef HEADER_COMMAND_LINE_OPTIONS_HPP
 #define HEADER_COMMAND_LINE_OPTIONS_HPP
 
+#include <vector>
+
 #include "arg_parser.hpp"
 #include "ini_schema.hpp"
 #include "uinput.hpp"
 
 class Options;
 class Xboxdrv;
+class ButtonMap;
+class AxisMap;
 
 class CommandLineParser 
 {
@@ -32,6 +36,7 @@ public:
   ArgParser m_argp;
   INISchema m_ini;
   Options*  m_options;
+  std::vector<std::string> m_directory_context;
   
 public:
   CommandLineParser();
@@ -47,7 +52,9 @@ private:
   void set_device_name(const std::string& name, const std::string& value);
   void set_device_usbid(const std::string& name, const std::string& value);
 
+  void set_ui_buttonmap(ButtonMap& btn_map, const std::string& name, const std::string& value);
   void set_ui_buttonmap(const std::string& name, const std::string& value);
+  void set_ui_axismap(AxisMap& axis_map, const std::string& name, const std::string& value);
   void set_ui_axismap(const std::string& name, const std::string& value);
   void set_modifier(const std::string& name, const std::string& value);
 
@@ -82,16 +89,17 @@ private:
   void set_evdev_absmap(const std::string& name, const std::string& value);
   void set_evdev_keymap(const std::string& name, const std::string& value);
 
-  void read_buildin_config_file(Options* opts, const std::string& filename, 
+  void read_buildin_config_file(const std::string& filename, 
                                 const char* data, unsigned int data_len);
-  void read_config_file(Options* opts, const std::string& filename);
-  void read_alt_config_file(Options* opts, const std::string& filename);
+  void read_config_file(const std::string& filename);
+  void read_alt_config_file(const std::string& filename);
 
   void mouse();
 
 private:
   void init_argp();
   void init_ini(Options* opts);
+  std::string get_directory_context() const;
 
 private:
   CommandLineParser(const CommandLineParser&);

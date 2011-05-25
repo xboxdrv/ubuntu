@@ -33,18 +33,20 @@ private:
   int m_led_status;
   ControllerThreadPtr m_thread;
   
+  const Options& m_opts;
+  UInput* m_uinput;
+
 public:
-  ControllerSlot();
   ControllerSlot(int id_,
                  ControllerSlotConfigPtr config_,
                  std::vector<ControllerMatchRulePtr> rules_,
                  int led_status_,
-                 ControllerThreadPtr thread_ = ControllerThreadPtr());
+                 const Options& opts,
+                 UInput* uinput);
 
   bool is_connected() const;
-  void connect(ControllerThreadPtr thread);
-  ControllerThreadPtr disconnect();
-  bool can_disconnect();
+  void connect(ControllerPtr controller);
+  ControllerPtr disconnect();
 
   const std::vector<ControllerMatchRulePtr>& get_rules() const { return m_rules; }
   int get_led_status() const { return m_led_status; }
@@ -52,6 +54,11 @@ public:
   ControllerSlotConfigPtr get_config() const { return m_config; }
  
   ControllerThreadPtr get_thread() const { return m_thread; }
+  ControllerPtr get_controller() const { return m_thread ? m_thread->get_controller() : ControllerPtr(); }
+
+private:
+  ControllerSlot(const ControllerSlot&);
+  ControllerSlot& operator=(const ControllerSlot&);
 };
 
 #endif

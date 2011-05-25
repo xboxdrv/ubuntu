@@ -32,10 +32,12 @@ Playstation3USBController::Playstation3USBController(libusb_device* dev, bool tr
   endpoint_out(2)
 {
   usb_claim_interface(0, try_detach);
+  usb_submit_read(endpoint_in, 64);
 }
 
 Playstation3USBController::~Playstation3USBController()
 {
+  usb_cancel_read();
   usb_release_interface(0);
 }
 
@@ -54,50 +56,35 @@ Playstation3USBController::set_led(uint8_t status)
 #define bitswap(x) x = ((x & 0x00ff) << 8) | ((x & 0xff00) >> 8)
 
 bool
-Playstation3USBController::read(XboxGenericMsg& msg, int timeout)
+Playstation3USBController::parse(uint8_t* data, int len, XboxGenericMsg* msg_out)
 {
-  int len;
-  uint8_t data[64] = {0};
-  int ret = libusb_interrupt_transfer(m_handle, LIBUSB_ENDPOINT_IN | endpoint_in, 
-                                      data, sizeof(data), 
-                                      &len, timeout);
-  if (ret == LIBUSB_ERROR_TIMEOUT)
+  if (static_cast<size_t>(len) >= sizeof(msg_out->ps3usb))
   {
-    return false;
-  }
-  else if (ret != LIBUSB_SUCCESS)
-  { // Error
-    std::ostringstream str;
-    str << "Playstation3USBController: USBError: " << ret << "\n" << usb_strerror(ret);
-    throw std::runtime_error(str.str());
-  }
-  else
-  {
-    msg.type = XBOX_MSG_PS3USB;
-    memcpy(&msg.ps3usb, data, sizeof(msg.ps3usb));
+    msg_out->type = XBOX_MSG_PS3USB;
+    memcpy(&msg_out->ps3usb, data, sizeof(msg_out->ps3usb));
 
-    bitswap(msg.ps3usb.accl_x);
-    bitswap(msg.ps3usb.accl_y);
-    bitswap(msg.ps3usb.accl_z);
-    bitswap(msg.ps3usb.rot_z);
+    bitswap(msg_out->ps3usb.accl_x);
+    bitswap(msg_out->ps3usb.accl_y);
+    bitswap(msg_out->ps3usb.accl_z);
+    bitswap(msg_out->ps3usb.rot_z);
 
     if (false)
     {
       log_debug(boost::format("X:%5d Y:%5d Z:%5d RZ:%5d\n") 
-                % (static_cast<int>(msg.ps3usb.accl_x) - 512) 
-                % (static_cast<int>(msg.ps3usb.accl_y) - 512)
-                % (static_cast<int>(msg.ps3usb.accl_z) - 512)
-                % (static_cast<int>(msg.ps3usb.rot_z)));
+                % (static_cast<int>(msg_out->ps3usb.accl_x) - 512) 
+                % (static_cast<int>(msg_out->ps3usb.accl_y) - 512)
+                % (static_cast<int>(msg_out->ps3usb.accl_z) - 512)
+                % (static_cast<int>(msg_out->ps3usb.rot_z)));
     }
       
     if (false)
     {
       // values are normalized to 1g (-116 is force by gravity)
       log_debug(boost::format("X:%6.3f Y:%6.3f Z:%6.3f RZ:%6.3f\n") 
-                % ((static_cast<int>(msg.ps3usb.accl_x) - 512) / 116.0f)
-                % ((static_cast<int>(msg.ps3usb.accl_y) - 512) / 116.0f)
-                % ((static_cast<int>(msg.ps3usb.accl_z) - 512) / 116.0f)
-                % ((static_cast<int>(msg.ps3usb.rot_z) - 5)));
+                % ((static_cast<int>(msg_out->ps3usb.accl_x) - 512) / 116.0f)
+                % ((static_cast<int>(msg_out->ps3usb.accl_y) - 512) / 116.0f)
+                % ((static_cast<int>(msg_out->ps3usb.accl_z) - 512) / 116.0f)
+                % ((static_cast<int>(msg_out->ps3usb.rot_z) - 5)));
     }
     
     if (false)
@@ -114,6 +101,10 @@ Playstation3USBController::read(XboxGenericMsg& msg, int timeout)
 
     return true;   
   }
+  else
+  {
+    return false;
+  }
 }
 
-  /* EOF */
+/* EOF */

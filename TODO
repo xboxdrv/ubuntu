@@ -3,6 +3,12 @@ Pre Release Testing:
 
 * check the version number
 
+* update NEWS
+
+* check git status
+
+* remove log_tmp()
+
 VERSION="$(cat VERSION)"
 TAG="v${VERSION}"
 git tag -s  "${TAG}" -m "xboxdrv ${TAG}" 
@@ -15,8 +21,6 @@ git push --tags
 
 Ubuntu Package:
 ===============
-
-add libudev, libusb-1.0 to builddependencies
 
 # Ubuntu 10.10
 
@@ -47,33 +51,199 @@ $ sudo pbuilder --build --basetgz /var/cache/pbuilder/base-maverick.tgz ../xboxd
 # Ubuntu 10.04 - xboxdrv-stable
 
 $ git checkout stable-lts
-$ git-buildpackage --git-no-create-orig --git-debian-branch=stable-lts --git-tag --git-builder="debuild -S" --git-debian-tag="stable/0.6.6-1_lucid1"
-$ sudo pbuilder --build --basetgz /var/cache/pbuilder/base-lucid.tgz ../xboxdrv-stable_0.6.6-1~lucid1.dsc
+$ git-buildpackage --git-no-create-orig --git-debian-branch=stable-lts --git-tag --git-builder="debuild -S" --git-debian-tag="stable/0.6.6-1_lucid2"
+$ sudo pbuilder --build --basetgz /var/cache/pbuilder/base-lucid.tgz ../xboxdrv-stable_0.6.6-1~lucid2.dsc
 
 
-Must have features
-==================
-
-* add --dbus option to make it optional
-
-* add back USB read thread
-
-* add libusb-0.1 support back (maybe only in 0.7.4)
-
-
-Stuff to do before 0.7.4 release:
+Stuff to do before 0.8.0 release:
 =================================
 
-* d-bus requires X11?!
+Checklist
+=========
+
+* there is a long delay in processing rumble messages
+
+* -r 128,128 --quit doesn't work:
+
+[TEMP]  USBController::~USBController(): ~USBController
+libusb:warning [libusb_close] internal signalling write failed, closing anyway
+
+* chatpad doesn't get a 0x1b signal when its connected after xboxdrv
+  is already running
+
+* active wireless controller aren't detected on startup of the daemon,
+  only they have send an event, any way to get activity status of the thing?
+
+* make code endian clean (done for main Xbox controller, not for the rest):
+
+  unpack_uint16(char* ptr, int offset);
+  unpack_sint16();
+  unpack_uint32();
+  unpack_sint32();
+
+* print which sub features are enabled: chatpad, force feedback, headset
+
+* make dbus optional, make --no-dbus an alias for --dbus NONE
+
+* check force feedback
+
+* rumble-test is broken completely
+
+* check output when --silent not given
+
+* check clean shutdown
+
+* check valgrind
+
+* check daemon
+
+* check autofire and other modifier that depend on time
+
+* test all controller
+
+* check that the child process works
+
+* check that uinput gets its timeout/update calls (send_rel_event)
+
+* cleanup a lot of the log_trace() and other temporary debug output
+
+* check that repeated wireless controller connects and disconnects work [done]
+
+* check that --quit works, currently broken
+
+* search for "#ifdef FIXME"
+
+* do proper error checking: 
+
+xboxdrv: src/usb_controller.cpp:218: void USBController::on_read_data(libusb_transfer*): Assertion `ret == LIBUSB_SUCCESS' failed.
+Aborted
+
+* exceptions in glib main loop might be dangerous and not really do what is intended
+
+* move sigint/sigterm handling out of main.cpp and into xboxdrv_daemon.cpp (needs to use gmain_quit())
+
+* LED do currently not get down on controller quit
+
+* move LED setting into ControllerThread or somewhere else, not at controller creation time
+
+* check that threads are cleaned up in daemon
+
+* headset and chatpad still use thread
+
+* go through checklist, disable headset and chatpad support for now,
+  do a source only release
+
+
+Stuff
+=====
+
+* realtime pirority currently disabled
+
+  if (opts.priority == Options::kPriorityRealtime)
+  {
+    // try to set realtime priority when root, as user there doesn't
+    // seem to be a way to increase the priority
+    if (geteuid() != 0)
+    {
+      log_error("realtime priority scheduling requires running as root");
+    }
+    else
+    {
+      log_info("enabling realtime priority scheduling");
+      pthread_t tid = static_cast<pthread_t>(m_thread->native_handle());
+  
+      int ret;
+      int policy;
+      struct sched_param param;
+      memset(&param, 0, sizeof(struct sched_param));
+
+      policy = SCHED_RR;
+      param.sched_priority = sched_get_priority_max(policy);
+
+      // we don't try SCHED_OTHER for users as min and max priority is
+      // 0 for that, thus we can't change anything with that
+
+      if ((ret = pthread_setschedparam(tid, policy, &param)) != 0)
+      {
+        log_error("pthread_setschedparam() failed: " << ret);
+      }
+    }
+  }
+
+
+Stuff to do before 0.8.x release:
+=================================
+
+* add LD_PRELOAD joystick override hack to running xboxdrv with an app.exe
+
+* change response curve syntax to allow defining two values for the
+  same point, one for the left one for the right to allow hard jumps
+  or allow giving x,y coordinates to have points net evenly spaced out, maybe both
+
+* add expression modifier:
+
+  --modifier X1^expr=V*6+1<<2
+
+* old udev errors:
+
+g++ -o src/xboxdrv_daemon.o -c -isystem/usr/include/dbus-1.0 -isystem/
+usr/lib/dbus-1.0/include -isystem/usr/include/glib-2.0 -isystem/usr/
+lib/glib-2.0/include -pthread -isystem/usr/local/include/libusb-1.0 -g
+-O3 -Wall -ansi -pedantic -DPACKAGE_VERSION='"0.7.3"' -Isrc src/
+xboxdrv_daemon.cpp
+src/xboxdrv_daemon.cpp: In member function 'void
+XboxdrvDaemon::init_udev_monitor(const Options&)':
+src/xboxdrv_daemon.cpp:251: error:
+'udev_monitor_filter_add_match_subsystem_devtype' was not declared in
+this scope
+scons: *** [src/xboxdrv_daemon.o] Error 1
+scons: building terminated because of errors.
+make: *** [xboxdrv] Error 2
+
+* add "null" button and key event to disable a button or axis (useful
+  to not triggering regular events when a shift button is pressed)
+
+* macro support needs to search files in a few more locations;
+
+  * current directory
+  * directory of parent .ini file
+  * users xboxdrv config directory (don't have that yet)
+
+* macro supports needs "init" command (somewhat done)
+
+* add support for "include" in macro
+
+* add support for macros that always reload when evaluated (makes testing easier)
+
+* document REL_ -1 better
+
+* when verbose is given, warn when keys are dual mapped, give list of free keys
+
+* space is currently illegal, but shouldn't be "GUIDE = KEY_LEFTALT + KEY_E" 
+
+* write macro that calibrates the joystick for DOS games
+
+* extra-devices adds a button when one only uses JS_0 buttons, shouldn't happen
+
+* invert y axis on --evdev
+
+* add double-click button, in the same wayne as hold-button
+
+* add --controller 4 or --controller-count 4 or something like that
+
+* add special LED status set switches the LED with the given config
+
+* export build-in config files, both as text and as directory, so that users can browse them
+
+* deadzone:MIN:MAX:SMOOTH is broken (fixed)
+
+* deadzone filter documentation is wrong
+
+* d-bus requires X11?! -> try system bus when running as root
 
 Autolaunch error: X11 initialization failed." failed to open connection to bus: /bin/dbus-launch terminated abnormally with the following error: Autolaunch error: X11 initialization failed.
 
-* missed events are a huge problem in ZSNES
-
-* ZSNES has issue with diagonals when it comes to HAT, might be bug in ZSNES
-https://bugs.launchpad.net/ubuntu/+source/zsnes/+bug/519845
-
-* have named output variables to chain filters and modifiers?!
+* add named output variables to chain filters and modifiers?!
 
 == Daemon ==
 
@@ -88,6 +258,10 @@ https://bugs.launchpad.net/ubuntu/+source/zsnes/+bug/519845
 * do something with stdout/stderr when its run in --detach mode
 
 == Other ==
+
+* add a way to refresh/reshuffle controller asignment with xboxdrvctrl
+  (i.e. having two controller and unplugging the first won't reassign
+  the second to the first slot, that should be available on request)
 
 * button presses are lost even with "--priority realtime" for the wireless controller
 
@@ -122,6 +296,8 @@ https://bugs.launchpad.net/ubuntu/+source/zsnes/+bug/519845
   -> add rel-repeat:{repeat} type that repeats more often the more the
      stick is pressed, to give better scroll wheel emulation
 
+* add "key-repeat", similar to rel-repeat
+
 * add "key-once" or something like that, that only clicks a key
   without keeping it pressed
 
@@ -133,7 +309,7 @@ Here KEY_B is the key you want to send and KEY_A is a random other key
 that you don't need. It's a hack as mapping both to KEY_B seems to
 cause some trouble with automatic key repeat for some reason. Note
 that you must not combine this with --trigger-as-zaxis as that will
-disable LT and RT
+disable LT and RT -> already fixed, check it
 
 * add a "click" filter or something like that, that causes a button to only be clicked, not hold
 
@@ -178,10 +354,7 @@ disable LT and RT
   -> hard to avoid, as wireless controllers are only picked up when
      active, which they always become later then the wired ones, which
      are active by default)
-
 
-* move sigint/sigterm handling out of main.cpp and into xboxdrv_daemon.cpp (needs to use gmain_quit())
-
 * BTN_A@joystick.1 doesn't work for a single joystick, why? (joystick isn't id=0, why?)
 
 * improve output on which uinput devices are created (even with udev
@@ -451,8 +624,6 @@ Stuff to do before 0.7.x release:
 
 * add extra checks to make sure the evdev buttons and axis given exist
   on the current device when using --evdev
-
-* invert y axis on --evdev
 
 * allow --type to work even when --device-by-id is not given
 
