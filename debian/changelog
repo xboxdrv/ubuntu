@@ -1,6 +1,6 @@
-xboxdrv (0.8.0-1~maverick1) maverick; urgency=low
+xboxdrv (0.8.1-1~maverick1) maverick; urgency=low
 
-  * xboxdrv 0.8.0 backport
+  * xboxdrv 0.8.1 backport
 
  -- Ingo Ruhnke <grumbel@gmx.de>  Thu, 26 May 2011 15:00:01 +0200
 
