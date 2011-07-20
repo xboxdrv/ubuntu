@@ -21,6 +21,8 @@
 
 #include "button_event.hpp"
 
+#include "ui_event_emitter.hpp"
+
 class RelButtonEventHandler : public ButtonEventHandler
 {
 public:
@@ -40,6 +42,8 @@ private:
 
   int  m_value;
   int  m_repeat;
+
+  UIEventEmitterPtr m_rel_emitter;
 };
 
 #endif
