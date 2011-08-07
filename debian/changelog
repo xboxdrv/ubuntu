@@ -1,10 +1,22 @@
-xboxdrv (0.8.1-1~lucid1) lucid; urgency=low
+xboxdrv (0.8.2-1~lucid1) lucid; urgency=low
 
-  * xboxdrv 0.8.1 backport
+  * xboxdrv 0.8.2 backport
 
- -- Ingo Ruhnke <grumbel@gmx.de>  Thu, 20 Jul 2011 01:40:04 +0200
+ -- Ingo Ruhnke <grumbel@gmx.de>  Sun, 07 Aug 2011 02:44:57 +0200
 
-xboxdrv (0.8.0-1) lucid; urgency=low
+xboxdrv (0.8.2-1) natty; urgency=low
+
+  * xboxdrv 0.8.2 release
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Sun, 07 Aug 2011 02:33:51 +0200
+
+xboxdrv (0.8.1-1) natty; urgency=low
+
+  * xboxdrv 0.8.1 release
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Wed, 20 Jul 2011 20:26:50 +0200
+
+xboxdrv (0.8.0-1) natty; urgency=low
 
   * xboxdrv 0.8.0 release
 
@@ -63,12 +75,6 @@ xboxdrv (0.6.4-1) maverick; urgency=low
   * xboxdrv 0.6.4 release
 
  -- Ingo Ruhnke <grumbel@gmx.de>  Thu, 13 Jan 2011 22:54:41 +0100
-
-xboxdrv (0.6.3-2~lucid1) lucid; urgency=low
-
-  * xboxdrv 0.6.3 backport
-
- -- Ingo Ruhnke <grumbel@gmx.de>  Mon, 10 Jan 2011 19:02:04 +0100
 
 xboxdrv (0.6.3-2) maverick; urgency=low
 
