@@ -1572,12 +1572,30 @@ miliseconds between button press events.
 miliseconds till the autofire will start, before that
 delay the button will act as normal.
 .TP 
+\*(T<\fBclick\-press\fR\*(T>
+The \*(T<\fBclick\-press\fR\*(T> filter will transmit a single button
+click when the button is pressed.
+.TP 
+\*(T<\fBclick\-release\fR\*(T>
+The \*(T<\fBclick\-release\fR\*(T> filter will transmit a single button
+click when the button is released.
+.TP 
+\*(T<\fBclick\-both\fR\*(T>
+The \*(T<\fBclick\-both\fR\*(T> filter will transmit a
+single button click when the button is pressed and
+another one when it is released.
+.TP 
 \*(T<\fBconst\fR\*(T>:\fIVALUE\fR
 The const filter will ignore the input signal and send a
 constant value to the output. This can be used for
 example in combination with multiple configurations to
 signal a game or another application which configuration
 is currently active.
+.TP 
+\*(T<\fBdelay\fR\*(T>:\fITIME\fR
+A button has to be held down for TIME miliseconds before
+it will emit an event, press events shorter then that will
+be ignored.
 .TP 
 \*(T<\fBlog\fR\*(T>:\fISTRING\fR
 The log filter will output everything to stdout that
