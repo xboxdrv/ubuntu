@@ -1,3 +1,9 @@
+xboxdrv (0.8.2-1) natty; urgency=low
+
+  * xboxdrv 0.8.2 release
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Sun, 07 Aug 2011 02:33:51 +0200
+
 xboxdrv (0.8.1-1) natty; urgency=low
 
   * xboxdrv 0.8.1 release
