@@ -107,7 +107,13 @@ public:
 
   // daemon options
   bool detach; 
-  bool dbus;
+  enum DBusSubsystemMode {
+    kDBusDisabled, /// disable dbus
+    kDBusAuto,     /// choice system or session bus on uid
+    kDBusSystem,   /// chose system bus
+    kDBusSession   /// chose session bus
+  };
+  DBusSubsystemMode dbus;
   std::string pid_file;
   std::string on_connect;
   std::string on_disconnect;
@@ -190,6 +196,7 @@ public:
   void set_usb_debug();
   void set_quiet();
 
+  void set_dbus_mode(const std::string& value);
   void set_led(const std::string& value);
   void set_device_name(const std::string& name);
   void set_device_usbid(const std::string& name);
@@ -200,6 +207,7 @@ public:
   void set_dpad_as_button();
   void set_dpad_only();
   void set_force_feedback(const std::string& value);
+  void set_ff_device(const std::string& value);
   void set_mimic_xpad();
   void set_mimic_xpad_wireless();
 

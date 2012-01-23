@@ -55,6 +55,7 @@ enum {
   OPTION_WRITE_CONFIG,
   OPTION_TEST_RUMBLE,
   OPTION_RUMBLE,
+  OPTION_FF_DEVICE,
   OPTION_PRIORITY,
   OPTION_QUIT,
   OPTION_NO_UINPUT,
@@ -123,6 +124,7 @@ enum {
   OPTION_DAEMON_MATCH,
   OPTION_DAEMON_MATCH_GROUP,
   OPTION_DAEMON_NO_DBUS,
+  OPTION_DAEMON_DBUS,
   OPTION_HELP_DEVICES,
   OPTION_LIST_ALL,
   OPTION_LIST_ABS,
@@ -189,6 +191,7 @@ CommandLineParser::init_argp()
     .add_option(OPTION_DAEMON_DETACH,   0, "detach",      "", "Detach the daemon from the current shell")
     .add_option(OPTION_DAEMON_PID_FILE, 0, "pid-file",    "FILE", "Write daemon pid to FILE")
     .add_option(OPTION_DAEMON_NO_DBUS,  0, "no-dbus",    "", "Disables D-Bus support in the daemon")
+    .add_option(OPTION_DAEMON_DBUS,     0, "dbus",    "MODE", "Set D-Bus mode (auto, system, session, disabled)")
     .add_option(OPTION_DAEMON_ON_CONNECT,    0, "on-connect", "FILE", "Launch EXE when a new controller is connected")
     .add_option(OPTION_DAEMON_ON_DISCONNECT, 0, "on-disconnect", "FILE", "Launch EXE when a controller is disconnected")
     .add_newline()
@@ -234,6 +237,7 @@ CommandLineParser::init_argp()
     .add_option(OPTION_FORCE_FEEDBACK,     0, "force-feedback",   "",     "Enable force feedback support")
     .add_option(OPTION_RUMBLE_GAIN,        0, "rumble-gain",      "NUM",  "Set relative rumble strength (default: 255)")
     .add_option(OPTION_TEST_RUMBLE,      'R', "test-rumble", "", "map rumbling to LT and RT (for testing only)")
+    .add_option(OPTION_FF_DEVICE,          0, "ff-device", "DEV", "select to which evdev the force feedback should be connected (default: joystick)")
     .add_newline()
 
     .add_text("Controller Slot Options: ")
@@ -358,6 +362,7 @@ CommandLineParser::init_ini(Options* opts)
     ("extra-devices", &opts->extra_devices)
     ("extra-events", &opts->extra_events)
     ("toggle", boost::bind(&Options::set_toggle_button, opts, _1))
+    ("ff-device", boost::bind(&Options::set_ff_device, opts, _1))
 
     ("deadzone", boost::bind(&CommandLineParser::set_deadzone, this, _1))
     ("deadzone-trigger", boost::bind(&CommandLineParser::set_deadzone_trigger, this, _1))
@@ -393,7 +398,7 @@ CommandLineParser::init_ini(Options* opts)
     ("detach",        
      boost::bind(&Options::set_daemon_detach, opts, true),
      boost::bind(&Options::set_daemon_detach, opts, false))
-    ("dbus", &opts->dbus)
+    ("dbus", boost::bind(&Options::set_dbus_mode, opts, _1))
     ("pid-file",      &opts->pid_file)
     ("on-connect",    &opts->on_connect)
     ("on-disconnect", &opts->on_disconnect)
@@ -555,6 +560,10 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         {
           raise_exception(std::runtime_error, opt.option << " expected an argument in form INT,INT");
         }
+        break;
+
+      case OPTION_FF_DEVICE:
+        opts.set_ff_device(opt.argument);
         break;
 
       case OPTION_QUIT:
@@ -864,8 +873,12 @@ CommandLineParser::parse_args(int argc, char** argv, Options* options)
         opts.on_disconnect = opt.argument;
         break;
 
+      case OPTION_DAEMON_DBUS:
+        opts.set_dbus_mode(opt.argument);
+        break;
+
       case OPTION_DAEMON_NO_DBUS:
-        opts.dbus = false;
+        opts.dbus = Options::kDBusDisabled;
         break;
 
       case OPTION_DEVICE_BY_ID:
