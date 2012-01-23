@@ -4,7 +4,7 @@ Priority: extra
 Maintainer: Ingo Ruhnke <grumbel@gmx.de>
 Build-Depends: scons, pkg-config, libusb-1.0-0-dev, libudev-dev, 
  libx11-dev, x11proto-core-dev, libdbus-1-dev, libglib2.0-dev,
- libdbus-glib-1-dev, scons, g++-4.5, libboost1.42-dev, 
+ libdbus-glib-1-dev, scons, g++-4.5, libboost-dev, 
  x11proto-core-dev, 
  debhelper (>= 7.4.15ubuntu1)
 Standards-Version: 3.8.4
