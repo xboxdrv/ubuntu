@@ -1,4 +1,4 @@
-xboxdrv (0.8.3-0ubuntu1) oneiric; urgency=low
+xboxdrv (0.8.3-0ubuntu2) oneiric; urgency=low
 
   * Fixed build dependencies
 
