@@ -1,3 +1,9 @@
+xboxdrv (0.8.3-0ubuntu1) oneiric; urgency=low
+
+  * xboxdrv 0.8.3 release
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Mon, 23 Jan 2012 21:38:24 +0100
+
 xboxdrv (0.8.2-1) natty; urgency=low
 
   * xboxdrv 0.8.2 release
