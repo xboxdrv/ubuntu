@@ -5,7 +5,7 @@
 \\$2 \(la\\$1\(ra\\$3
 ..
 .if \n(.g .mso www.tmac
-.TH "xboxdrv " 1 2011-07-20 0.8.1 "User Commands"
+.TH "xboxdrv " 1 2011-07-20 0.8.3 "User Commands"
 .SH NAME
 xboxdrv
 \- A Xbox/Xbox360 gamepad driver that works in userspace 
@@ -248,6 +248,19 @@ if \*(T<\fB\-\-daemon\fR\*(T> is given.
 .TP 
 \*(T<\fB\-\-pid\-file\fR\*(T> \fIFILE\fR
 Write the xboxdrv daemon process id to FILE.
+.TP 
+\*(T<\fB\-\-dbus\fR\*(T> \fIBUS\fR
+Set which bus type xboxdrv should connect to. Allowed
+values for BUS are session,
+system,
+disabled and
+auto. The default is
+auto, which will detect the
+appropriate bus type depending on if xboxdrv is run as
+root (system or as user
+(session). Running with
+disabled will disable D-Bus support
+completely.
 .TP 
 \*(T<\fB\-\-on\-connect\fR\*(T> \fIEXE\fR
 Launches \fIEXE\fR
@@ -600,6 +613,15 @@ to get rid of.
 When using xboxdrv in daemon mode with multiple
 controller slots you have to enable force feedback for
 each slot separately.
+.TP 
+\*(T<\fB\-\-ff\-device\fR\*(T> \fIDEVICEID\fR
+Select to which virtual device the force-feedback
+callbacks will be connected to, it defaults to
+joystick. Other allowed values are
+mouse,
+keyboard and any integer number.
+See \*(T<\fB\-\-ui\-buttonmap\fR\*(T> for further
+information on how device-ids work.
 .TP 
 \*(T<\fB\-R\fR\*(T>, \*(T<\fB\-\-test\-rumble\fR\*(T>
 Pressing LT will move the left rumble motor and pressing
@@ -1416,7 +1438,7 @@ weapon keys forward, while B is used to toggle the keys backwards:
   \-\-ui\-buttonmap A=cycle\-key\-named:weapons:KEY_1:KEY_2:KEY_3:KEY_4,B=cycle\-key\-ref:weapons\*(T>
 .fi
 .TP 
-\*(T<\fBcycle\-key\-ref\fR\*(T>:\fINAME\fR:\fIDIRECTION\fR
+\*(T<\fBcycle\-key\-ref\fR\*(T>:\fINAME\fR:\fIDIRECTION\fR, \*(T<\fBsequence\-key\-ref\fR\*(T>:\fINAME\fR:\fIDIRECTION\fR
 The \*(T<\fBcycle\-key\-ref\fR\*(T> handler will access
 and reuse the named cycle keysequence given
 by \fINAME\fR.
@@ -1425,6 +1447,22 @@ If \fIDIRECTION\fR can either be
 will default to 'backward'.
 
 See \*(T<\fBcycle\-key\-named\fR\*(T> for a full example.
+.TP 
+\*(T<\fBsequence\-key\-named:\fR\*(T>\fINAME\fR\*(T<\fB:\fR\*(T>\fIKEY_EVENT\fR\*(T<\fB:...\fR\*(T>
+The \*(T<\fBsequence\-key\-named\fR\*(T> works exactly
+the same as the \*(T<\fBcycle\-key\-named\fR\*(T>, with
+the only difference being that
+the \*(T<\fBsequence\-key\-named\fR\*(T> will not wrap
+around when reaching the beginning or end of the
+sequence.
+
+This behaviour is useful in flight simulations or other
+games where thrusters might be controllered by numeric
+keys and it wouldn't make much sense to jump from zero
+to full thrust in one go.
+
+To move backwards through the sequence another key must
+be bound to \*(T<\fBsequence\-key\-ref\fR\*(T>.
 .TP 
 \*(T<\fBexec\fR\*(T>
 The exec button handler allows to launch an application
