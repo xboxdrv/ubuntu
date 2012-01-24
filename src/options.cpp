@@ -96,7 +96,7 @@ Options::Options() :
   headset_dump(),
   headset_play(),
   detach(false),
-  dbus(true),
+  dbus(kDBusAuto),
   pid_file(),
   on_connect(),
   on_disconnect(),
@@ -227,6 +227,47 @@ Options::set_usb_debug()
 }
 
 void
+Options::set_dbus_mode(const std::string& value)
+{
+  if (value == "system")
+  {
+    dbus = kDBusSystem;
+  }
+  else if (value == "session")
+  {
+    dbus = kDBusSession;
+  }
+  else if (value == "auto")
+  {
+    dbus = kDBusAuto;
+  }
+  else if (value == "disabled")
+  {
+    dbus = kDBusDisabled;
+  }
+  else
+  {
+    try {
+      // Fallback for backward compatibility
+      if (boost::lexical_cast<bool>(value))
+      {
+        dbus = kDBusAuto;
+      }
+      else
+      {
+        dbus = kDBusDisabled;        
+      }
+    }
+    catch(const std::exception& err)
+    {
+      // fallback failed, so assume that the user used the new way and
+      // did a typing error
+      raise_exception(std::runtime_error, "unknown dbus mode: " << value);
+    }
+  }
+}
+
+void
 Options::set_led(const std::string& value)
 {
   get_controller_slot().set_led_status(boost::lexical_cast<int>(value));
@@ -295,6 +336,12 @@ void
 Options::set_force_feedback(const std::string& value)
 {
   get_controller_slot().set_force_feedback(boost::lexical_cast<bool>(value));
+}
+
+void
+Options::set_ff_device(const std::string& value)
+{
+  get_controller_slot().set_ff_device(value);
 }
 
 void

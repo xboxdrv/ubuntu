@@ -22,74 +22,76 @@ git push --tags
 Ubuntu Package:
 ===============
 
-# Ubuntu 11.04
+cd ../debian/xboxdrv
 
-$ cd ../debian/xboxdrv
-$ git checkout master
-$ git-import-orig -u 0.8.2 ~/projects/xboxdrv/htdocs/xboxdrv-linux-0.8.2.tar.bz2 
-$ dch -v "0.8.2-1" "xboxdrv 0.8.2 release"
-$ git-buildpackage --git-no-create-orig --git-tag --git-builder="debuild -S"
-$ sudo pbuilder --build --basetgz /var/cache/pbuilder/base-natty.tgz ../xboxdrv_0.8.2-1.dsc
-$ dput my-ppa ../xboxdrv_0.8.2-1_source.changes
+# Ubuntu 11.04
+# ============
+git checkout master
+git-import-orig -u 0.8.2 ~/projects/xboxdrv/htdocs/xboxdrv-linux-0.8.2.tar.bz2 
+dch -v "0.8.2-1" "xboxdrv 0.8.2 release"
+git commit -m "xboxdrv 0.8.2 release" -a
+git-buildpackage --git-no-create-orig --git-tag --git-builder="debuild -S"
+sudo pbuilder --build --basetgz /var/cache/pbuilder/base-natty.tgz ../xboxdrv_0.8.2-1.dsc
+dput my-ppa ../xboxdrv_0.8.2-1_source.changes
 
 # Ubuntu 10.10
-
-$ git checkout master-10.10
-$ git merge master
-$ dch -b -v "0.8.2-1~maverick1" --distribution maverick "xboxdrv 0.8.2 backport"
-$ git-buildpackage --git-no-create-orig --git-debian-branch=master-10.10 --git-tag --git-builder="debuild -S"
-$ sudo pbuilder --build --basetgz /var/cache/pbuilder/base-maverick.tgz ../xboxdrv_0.8.2-1~maverick1.dsc
-$ dput my-ppa ../xboxdrv_0.8.2-1~maverick1_source.changes
+# ============
+git checkout master-10.10
+git merge master
+git show master:debian/changelog > debian/changelog 
+dch -b -v "0.8.2-1~maverick1" --distribution maverick "xboxdrv 0.8.2 backport"
+git commit -m "xboxdrv 0.8.2 backport" -a
+git-buildpackage --git-no-create-orig --git-debian-branch=master-10.10 --git-tag --git-builder="debuild -S"
+sudo pbuilder --build --basetgz /var/cache/pbuilder/base-maverick.tgz ../xboxdrv_0.8.2-1~maverick1.dsc
+dput my-ppa ../xboxdrv_0.8.2-1~maverick1_source.changes
 
 # Ubuntu 10.04 (LTS)
-
-$ cd ../debian/xboxdrv
-$ git checkout master-lts
-$ git merge master
-$ dch -b -v "0.8.2-1~lucid1" --distribution lucid "xboxdrv 0.8.2 backport"
-$ git-buildpackage --git-no-create-orig --git-debian-branch=master-lts --git-tag --git-builder="debuild -S"
-$ sudo pbuilder --build --basetgz /var/cache/pbuilder/base-lucid.tgz ../xboxdrv_0.8.2-1~lucid1.dsc
-$ dput my-ppa ../xboxdrv_0.8.2-1~lucid1_source.changes
+# ==================
+git checkout master-lts
+git merge master
+git show master:debian/changelog > debian/changelog 
+dch -b -v "0.8.2-1~lucid1" --distribution lucid "xboxdrv 0.8.2 backport"
+git commit -m "xboxdrv 0.8.2 backport" -a
+git-buildpackage --git-no-create-orig --git-debian-branch=master-lts --git-tag --git-builder="debuild -S"
+sudo pbuilder --build --basetgz /var/cache/pbuilder/base-lucid.tgz ../xboxdrv_0.8.2-1~lucid1.dsc
+dput my-ppa ../xboxdrv_0.8.2-1~lucid1_source.changes
 
 # Ubuntu 10.10 - xboxdrv-stable
-
-$ git checkout stable
-$ git-buildpackage --git-no-create-orig --git-debian-branch=stable --git-tag --git-builder="debuild -S" --git-debian-tag="stable/0.6.6-1"
-$ sudo pbuilder --build --basetgz /var/cache/pbuilder/base-maverick.tgz ../xboxdrv-stable_0.6.6-1.dsc
+# =============================
+git checkout stable
+git-buildpackage --git-no-create-orig --git-debian-branch=stable --git-tag --git-builder="debuild -S" --git-debian-tag="stable/0.6.6-1"
+sudo pbuilder --build --basetgz /var/cache/pbuilder/base-maverick.tgz ../xboxdrv-stable_0.6.6-1.dsc
 
 # Ubuntu 10.04 - xboxdrv-stable
-
-$ git checkout stable-lts
-$ git-buildpackage --git-no-create-orig --git-debian-branch=stable-lts --git-tag --git-builder="debuild -S" --git-debian-tag="stable/0.6.6-1_lucid2"
-$ sudo pbuilder --build --basetgz /var/cache/pbuilder/base-lucid.tgz ../xboxdrv-stable_0.6.6-1~lucid2.dsc
+# =============================
+git checkout stable-lts
+git-buildpackage --git-no-create-orig --git-debian-branch=stable-lts --git-tag --git-builder="debuild -S" --git-debian-tag="stable/0.6.6-1_lucid2"
+sudo pbuilder --build --basetgz /var/cache/pbuilder/base-lucid.tgz ../xboxdrv-stable_0.6.6-1~lucid2.dsc
 
 
 Target for 0.8.3
 ================
+
+* test if its possible to mix cycle-key with macro: or other advanced
+  ButtonEvents
+
+* "--dbus system" currently does not work as expected
+
+$ sudo ./xboxdrv --daemon  --dbus system --quiet
+[ERROR] XboxdrvDaemon::run(): fatal exception: failed to get unique dbus name: Connection ":1.55" is not allowed to own the service "org.seul.Xboxdrv" due to security policies in the configuration file
+libusb:warning [libusb_close] internal signalling write failed, closing anyway
+libusb:warning [libusb_close] internal signalling write failed, closing anyway
+libusb:warning [libusb_close] internal signalling write failed, closing anyway
+libusb:warning [libusb_close] internal signalling write failed, closing anyway
+
+ -> http://stackoverflow.com/questions/4560877/dbus-bus-request-name-connections-are-not-allowed-to-own-the-service
 
 * update/fix man-page
 
   -> rewrite the --ui-axismap, --ui-buttonmap section, currently kind
      of confusing
 
-* add function that can handle PC game style inventories, i.e. 0-9
-  keys by using less buttons (maybe do graphical overlay stuff):
-
-  - next/prev button, either instant press, an activate button or
-    activate by timeout (to work around slow weapon change in some
-    games)
-
-  - graphical overlay that displays the current position
-
-  - single button inventory: next, hold to activate
-
-  Possible Syntax (could need list of lists tokenizer):
-
-  --emitter inventory=(LB:RB):A:(KEY_1:KEY_2:KEY_3:KEY_4:KEY_5:KEY_6)
-                        ^  ^  ^  ^- button to which to toggle through
-                        |  |  `---- activate button
-                        |  `------- next button
-                        `---------- previous button
+  -> add --dbus documentation
 
 * cycle-key is incomplete, should have additional mode that allows
   next/prev without sending events, also has issues with stuck buttons
@@ -105,6 +107,17 @@ Target for 0.8.3
 
   -> add an option to have the cycle sequence not wrap around: 
      -> possible use: throttle in a flightsim mapped to 1-9
+
+  Possible future improvements:
+
+  - next/prev button that don't trigger the key, an activate button or
+    activate by timeout (to work around slow weapon change in some
+    games)
+
+  - graphical overlay that displays the current position
+    -> requires separate process
+
+  - single button inventory: next, hold to activate
 
 
 Target for 0.9.0
@@ -171,8 +184,6 @@ libusb:warning [libusb_close] internal signalling write failed, closing anyway
   only they have send an event, any way to get activity status of the thing?
 
 * print which sub features are enabled: chatpad, force feedback, headset
-
-* make dbus optional, make --no-dbus an alias for --dbus NONE or --dbus false (easier for config file)
 
 * check force feedback
 
