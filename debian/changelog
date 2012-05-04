@@ -1,3 +1,9 @@
+xboxdrv (0.8.4-0ubuntu2) precise; urgency=low
+
+  * Ubuntu 12.04 update
+
+ -- Ingo Ruhnke <grumbel@gmx.de>  Fri, 04 May 2012 20:13:05 +0200
+
 xboxdrv (0.8.4-0ubuntu1) oneiric; urgency=low
 
   * xboxdrv 0.8.4 release
