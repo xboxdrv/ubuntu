@@ -1,3 +1,9 @@
+xboxdrv (0.8.5-0ubuntu1) UNRELEASED; urgency=low
+
+  * xboxdrv 0.8.5 release
+
+ -- Ingo Ruhnke <grumbel@gmail.com>  Sun, 07 Apr 2013 19:52:57 +0200
+
 xboxdrv (0.8.4-0ubuntu2) precise; urgency=low
 
   * Ubuntu 12.04 update
