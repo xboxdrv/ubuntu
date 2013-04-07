@@ -50,8 +50,6 @@ Xbox360WirelessController::Xbox360WirelessController(libusb_device* dev, int con
 
 Xbox360WirelessController::~Xbox360WirelessController()
 {
-  usb_cancel_read();
-  usb_release_interface(m_interface);
 }
 
 void
@@ -68,7 +66,7 @@ Xbox360WirelessController::set_led_real(uint8_t status)
 {
   //                                +--- Why not just status?
   //                                v
-  uint8_t ledcmd[] = { 0x00, 0x00, 0x08, 0x40 + (status % 0x0e), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+  uint8_t ledcmd[] = { 0x00, 0x00, 0x08, static_cast<uint8_t>(0x40 + (status % 0x0e)), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
   usb_write(m_endpoint, ledcmd, sizeof(ledcmd));
 }
 
