@@ -1,3 +1,9 @@
+xboxdrv (0.8.5-0ubuntu4) vivid; urgency=medium
+
+  * Ubuntu 15.05 updates
+
+ -- Ingo Ruhnke <grumbel@gmail.com>  Wed, 04 Mar 2015 20:32:49 +0100
+
 xboxdrv (0.8.5-0ubuntu3) trusty; urgency=medium
 
   * Ubuntu 14.04 updates
