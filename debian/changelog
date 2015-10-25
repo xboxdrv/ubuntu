@@ -1,3 +1,9 @@
+xboxdrv (0.8.6-0ubuntu1) wily; urgency=medium
+
+  * Updated to 0.8.6
+
+ -- Ingo Ruhnke <grumbel@gmail.com>  Sun, 25 Oct 2015 23:03:27 +0100
+
 xboxdrv (0.8.5-0ubuntu6) wily; urgency=medium
 
   * Fixed dependencies
