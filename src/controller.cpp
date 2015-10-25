@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ Controller::set_led(uint8_t status)
   if (m_led_status != status)
   {
     m_led_status = status;
-    
+
     set_led_real(m_led_status);
   }
 }

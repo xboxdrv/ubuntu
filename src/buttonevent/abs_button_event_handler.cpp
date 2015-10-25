@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ std::string
 AbsButtonEventHandler::str() const
 {
   std::ostringstream out;
-  out << "abs: " << m_code.get_device_id() << "-" << m_code.code << ":" << m_value; 
+  out << "abs: " << m_code.get_device_id() << "-" << m_code.code << ":" << m_value;
   return out.str();
 }
 

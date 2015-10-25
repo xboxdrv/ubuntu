@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -23,9 +23,9 @@
 #include "log.hpp"
 #include "uinput.hpp"
 
-UIEventCollector::UIEventCollector(UInput& uinput, 
-                               uint32_t device_id, 
-                               int type, 
+UIEventCollector::UIEventCollector(UInput& uinput,
+                               uint32_t device_id,
+                               int type,
                                int code) :
   m_uinput(uinput),
   m_device_id(device_id),

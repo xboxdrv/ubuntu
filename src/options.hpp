@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -34,7 +34,7 @@ class Options
 {
 public:
   enum { RUN_DEFAULT,
-         RUN_DAEMON, 
+         RUN_DAEMON,
          RUN_LIST_CONTROLLER,
          RUN_LIST_SUPPORTED_DEVICES,
          RUN_LIST_SUPPORTED_DEVICES_XPAD,
@@ -76,7 +76,7 @@ public:
   Priority priority;
 
   GamepadType gamepad_type;
-  
+
   // device options
   std::string busid;
   std::string devid;
@@ -106,7 +106,7 @@ public:
   std::string headset_play;
 
   // daemon options
-  bool detach; 
+  bool detach;
   enum DBusSubsystemMode {
     kDBusDisabled, /// disable dbus
     kDBusAuto,     /// choice system or session bus on uid
@@ -153,18 +153,18 @@ public:
   public:
     static GenericUSBSpec from_string(const std::string& str);
 
-    GenericUSBSpec(int vendor_id,
-                   int product_id,
-                   int interface,
-                   int endpoint,
-                   int packetsize) :
-      m_vendor_id(vendor_id),
-      m_product_id(product_id),
-      m_interface(interface),
-      m_endpoint(endpoint),
-      m_packetsize(packetsize)
+    GenericUSBSpec(int vendor_id_,
+                   int product_id_,
+                   int interface_,
+                   int endpoint_,
+                   int packetsize_) :
+      m_vendor_id(vendor_id_),
+      m_product_id(product_id_),
+      m_interface(interface_),
+      m_endpoint(endpoint_),
+      m_packetsize(packetsize_)
     {}
-    
+
     int m_vendor_id;
     int m_product_id;
     int m_interface;
@@ -179,7 +179,7 @@ public:
 
   ControllerSlotOptions& get_controller_slot();
   const ControllerSlotOptions& get_controller_slot() const;
-  
+
   /** Returns the currently active configuration */
   ControllerOptions& get_controller_options();
   const ControllerOptions& get_controller_options() const;
@@ -213,7 +213,7 @@ public:
 
   void set_daemon();
   void set_daemon_detach(bool value);
-  
+
   void add_match(const std::string& lhs, const std::string& rhs);
   void set_match(const std::string& str);
   void set_match_group(const std::string& str);

@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -36,13 +36,13 @@ EvdevAbsMap::bind_plus(int code, XboxAxis axis)
 void
 EvdevAbsMap::bind_minus(int code, XboxAxis axis)
 {
-   m_minus_map[code] = axis; 
+   m_minus_map[code] = axis;
 }
 
 void
 EvdevAbsMap::bind_both(int code, XboxAxis axis)
 {
-  m_both_map[code] = axis; 
+  m_both_map[code] = axis;
 }
 
 void
@@ -60,10 +60,10 @@ EvdevAbsMap::process(XboxGenericMsg& msg, int code, int value, int min, int max)
     std::map<int, XboxAxis>::const_iterator it = m_plus_map.find(code);
     if (it != m_plus_map.end())
     {
-      // '+ 1' so that we round up, instead of round down 
+      // '+ 1' so that we round up, instead of round down
       const int center = (max - min + 1) / 2;
       const float v = to_float(value, center, min);
-      set_axis_float(msg, it->second, v); 
+      set_axis_float(msg, it->second, v);
     }
   }
 
@@ -71,10 +71,10 @@ EvdevAbsMap::process(XboxGenericMsg& msg, int code, int value, int min, int max)
     std::map<int, XboxAxis>::const_iterator it = m_minus_map.find(code);
     if (it != m_minus_map.end())
     {
-      // '+ 1' so that we round up, instead of round down 
+      // '+ 1' so that we round up, instead of round down
       const int center = (max - min + 1) / 2;
       const float v = to_float(value, center, max);
-      set_axis_float(msg, it->second, v);       
+      set_axis_float(msg, it->second, v);
     }
   }
 
@@ -82,9 +82,9 @@ EvdevAbsMap::process(XboxGenericMsg& msg, int code, int value, int min, int max)
     std::map<int, XboxAxis>::const_iterator it = m_both_map.find(code);
     if (it != m_both_map.end())
     {
-      // '+ 1' so that we round up, instead of round down 
+      // '+ 1' so that we round up, instead of round down
       const float v = to_float(value, min, max);
-      set_axis_float(msg, it->second, v); 
+      set_axis_float(msg, it->second, v);
     }
   }
 }

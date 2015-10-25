@@ -1,6 +1,6 @@
-/* 
+/*
 **  Xbox/Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2008 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2008 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -60,7 +60,7 @@ inline int16_t s16_invert(int16_t v)
 
 inline int16_t scale_8to16(int8_t a)
 {
-  if (a > 0) 
+  if (a > 0)
     return static_cast<int16_t>(a * 32767 / 127);
   else
     return static_cast<int16_t>(a * 32768 / 128);

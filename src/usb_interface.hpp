@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ public:
   USBInterface(libusb_device_handle* handle, int interface, bool try_detach = false);
   ~USBInterface();
 
-  void submit_read(int endpoint, int len, 
+  void submit_read(int endpoint, int len,
                    const boost::function<bool (uint8_t*, int)>& callback);
   void cancel_read(int endpoint);
 

@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ class KeyAxisEventHandler : public AxisEventHandler
 {
 public:
   static KeyAxisEventHandler* from_string(const std::string& str);
-  
+
 public:
   KeyAxisEventHandler();
 
@@ -41,7 +41,7 @@ private:
   void send_up(UInput& uinput, int value);
   void send_down(UInput& uinput, int value);
   int  get_zone(int value) const;
-  
+
 private:
   int m_old_value;
 

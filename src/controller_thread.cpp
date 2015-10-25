@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@
 
 extern bool global_exit_xboxdrv;
 
-ControllerThread::ControllerThread(ControllerPtr controller, 
+ControllerThread::ControllerThread(ControllerPtr controller,
                                    std::auto_ptr<MessageProcessor> processor,
                                    const Options& opts) :
   m_controller(controller),
@@ -78,7 +78,7 @@ ControllerThread::on_message(const XboxGenericMsg& msg)
 
   int msec_delta = static_cast<int>(g_timer_elapsed(m_timer, NULL) * 1000.0f);
   g_timer_reset(m_timer);
-    
+
   if (m_processor.get())
   {
     m_processor->send(msg, msec_delta);

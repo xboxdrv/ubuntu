@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ WordWrap::para(const std::string& prefix, const std::string& str) const
   tokenizer tokens(str, boost::char_separator<char>(" ", "", boost::drop_empty_tokens));
 
   int len = prefix.size();
-  std::cout << prefix; 
+  std::cout << prefix;
   for(tokenizer::iterator i = tokens.begin(); i != tokens.end(); ++i)
   {
     if (len + static_cast<int>(i->size()) + 1 >= m_terminal_width)

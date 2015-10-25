@@ -1,6 +1,6 @@
-/* 
+/*
 **  Xbox/Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2008 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2008 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -51,9 +51,9 @@ int hexstr2int(const std::string& str)
 std::string raw2str(uint8_t* data, int len)
 {
   std::ostringstream out;
-  out << "len: " << len 
+  out << "len: " << len
       << " data: ";
-  
+
   for(int i = 0; i < len; ++i)
     out << boost::format("%02x ") % int(data[i]);
 
@@ -189,7 +189,7 @@ pid_t spawn_exe(const std::string& arg0)
 pid_t spawn_exe(const std::vector<std::string>& args)
 {
   assert(!args.empty());
-  
+
   pid_t pid = fork();
   if (pid == 0)
   {

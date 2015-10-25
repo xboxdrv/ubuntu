@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -82,7 +82,7 @@ UIEventSequence::send(UInput& uinput, int value)
   {
     // on release, send events in reverse order
     for(UIEventEmitters::reverse_iterator i = m_emitters.rbegin(); i != m_emitters.rend(); ++i)
-    { 
+    {
       (*i)->send(value);
     }
   }

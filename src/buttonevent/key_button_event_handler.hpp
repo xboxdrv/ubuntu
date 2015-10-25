@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ public:
   void update(UInput& uinput, int msec_delta);
 
   std::string str() const;
-  
+
 private:
   bool m_state;
   UIEventSequence m_codes;

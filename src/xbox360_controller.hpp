@@ -1,6 +1,6 @@
-/* 
+/*
 **  Xbox/Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2008 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2008 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ class Xbox360Controller : public USBController
 {
 private:
   XPadDevice*        dev_type;
-  
+
   int endpoint_in;
   int endpoint_out;
 
@@ -44,10 +44,10 @@ private:
   uint8_t m_rumble_right;
 
 public:
-  Xbox360Controller(libusb_device* dev, 
-                    bool chatpad, bool chatpad_no_init, bool chatpad_debug, 
-                    bool headset, 
-                    bool headset_debug, 
+  Xbox360Controller(libusb_device* dev,
+                    bool chatpad, bool chatpad_no_init, bool chatpad_debug,
+                    bool headset,
+                    bool headset_debug,
                     const std::string& headset_dump,
                     const std::string& headset_play,
                     bool try_detach);

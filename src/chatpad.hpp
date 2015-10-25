@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -115,22 +115,25 @@ private:
   struct ChatpadMsg
   {
     uint8_t type;
-    
-    union {
-      struct {
-        uint8_t unknown1;
-        uint8_t unknown2;
-        uint8_t count1;
-        uint8_t count2;
-      } __attribute__((__packed__)) clock;
 
-      struct {
-        uint8_t zero1;
-        uint8_t modifier;
-        uint8_t scancode1;
-        uint8_t scancode2;
-        uint8_t zero3;
-      } __attribute__((__packed__)) key;
+    struct ClockData {
+      uint8_t unknown1;
+      uint8_t unknown2;
+      uint8_t count1;
+      uint8_t count2;
+    } __attribute__((__packed__));
+
+    struct KeyData {
+      uint8_t zero1;
+      uint8_t modifier;
+      uint8_t scancode1;
+      uint8_t scancode2;
+      uint8_t zero3;
+    } __attribute__((__packed__));
+
+    union {
+      ClockData clock;
+      KeyData key;
     };
   } __attribute__((__packed__));
 
@@ -166,7 +169,7 @@ public:
   void send_init();
 
   void set_led(unsigned int led, bool state);
-  bool get_led(unsigned int led); 
+  bool get_led(unsigned int led);
 
   void process(const ChatpadKeyMsg& msg);
   void init_uinput();
@@ -175,7 +178,7 @@ private:
   void send_command();
   void send_timeout(int msec);
   void send_ctrl(uint8_t request_type, uint8_t request, uint16_t value, uint16_t index,
-                 uint8_t* data_in = NULL, uint16_t length = 0, 
+                 uint8_t* data_in = NULL, uint16_t length = 0,
                  libusb_transfer_cb_fn callback = NULL, void* userdata = NULL);
 
   void usb_submit_read(int endpoint, int len);

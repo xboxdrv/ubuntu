@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -45,12 +45,12 @@ StatisticModifier::print_stats()
 {
   std::cout << "Button Press Statistics\n"
             << "=======================\n\n";
-  
-  std::cout << boost::format("%12s | %5d") % "Name" % "Count" << std::endl;  
+
+  std::cout << boost::format("%12s | %5d") % "Name" % "Count" << std::endl;
   std::cout << "-------------+---------" << std::endl;
   for(int btn = 1; btn < XBOX_BTN_MAX; ++btn)
   {
-    std::cout << boost::format("%12s : %5d") 
+    std::cout << boost::format("%12s : %5d")
       % btn2string(static_cast<XboxButton>(btn)) % m_press_count[btn]
               << std::endl;
   }

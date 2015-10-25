@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -40,12 +40,12 @@ RelButtonEventHandler::from_string(const std::string& str)
         ev.reset(new RelButtonEventHandler(str2rel_event(*i)));
         break;
 
-      case 1: 
+      case 1:
         ev->m_value  = boost::lexical_cast<int>(*i);
         break;
-        
-      case 2: 
-        ev->m_repeat = boost::lexical_cast<int>(*i); 
+
+      case 2:
+        ev->m_repeat = boost::lexical_cast<int>(*i);
         break;
     }
   }
@@ -88,7 +88,7 @@ RelButtonEventHandler::send(UInput& uinput, bool value)
     {
       uinput.send_rel_repetitive(m_code, m_value, -1);
     }
-  } 
+  }
 }
 
 std::string

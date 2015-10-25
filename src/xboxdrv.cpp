@@ -1,6 +1,6 @@
-/* 
+/*
 **  Xbox/Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2008 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2008 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -29,18 +29,19 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "controller_thread.hpp"
 #include "command_line_options.hpp"
+#include "controller_factory.hpp"
+#include "controller_thread.hpp"
 #include "dummy_message_processor.hpp"
 #include "evdev_controller.hpp"
 #include "evdev_helper.hpp"
 #include "helper.hpp"
 #include "raise_exception.hpp"
 #include "uinput_message_processor.hpp"
-#include "usb_helper.hpp"
 #include "usb_gsource.hpp"
+#include "usb_helper.hpp"
+#include "usb_subsystem.hpp"
 #include "word_wrap.hpp"
-#include "controller_factory.hpp"
 #include "xboxdrv_daemon.hpp"
 #include "xboxdrv_main.hpp"
 
@@ -85,7 +86,7 @@ Xboxdrv::run_list_controller()
                 % wid
                 % int(xpad_devices[i].idVendor)
                 % int(xpad_devices[i].idProduct)
-                % xpad_devices[i].name 
+                % xpad_devices[i].name
                 % wid
                         << std::endl;
             }
@@ -97,7 +98,7 @@ Xboxdrv::run_list_controller()
               % 0
               % int(xpad_devices[i].idVendor)
               % int(xpad_devices[i].idProduct)
-              % xpad_devices[i].name 
+              % xpad_devices[i].name
                       << std::endl;
           }
           id += 1;
@@ -108,7 +109,7 @@ Xboxdrv::run_list_controller()
   }
 
   if (id == 0)
-    std::cout << "\nno controller detected" << std::endl; 
+    std::cout << "\nno controller detected" << std::endl;
 
   libusb_free_device_list(list, 1 /* unref_devices */);
 }
@@ -123,7 +124,7 @@ Xboxdrv::run_list_supported_devices()
       % int(xpad_devices[i].idVendor)
       % int(xpad_devices[i].idProduct)
       % xpad_devices[i].name;
-  }    
+  }
 }
 
 bool xpad_device_sorter(const XPadDevice& lhs, const XPadDevice& rhs)
@@ -157,7 +158,7 @@ Xboxdrv::run_list_supported_devices_xpad()
       % int(sorted_devices[i].idProduct)
       % sorted_devices[i].name
       % gamepadtype_to_macro_string(sorted_devices[i].type);
-  }    
+  }
 }
 
 void
@@ -170,9 +171,9 @@ Xboxdrv::run_help_devices()
     std::cout << boost::format("   0x%04x |    0x%04x | %s")
       % int(xpad_devices[i].idVendor)
       % int(xpad_devices[i].idProduct)
-      % xpad_devices[i].name 
+      % xpad_devices[i].name
               << std::endl;
-  }           
+  }
 }
 
 void
@@ -180,7 +181,7 @@ Xboxdrv::print_copyright() const
 {
   WordWrap wrap(get_terminal_width());
   wrap.para("xboxdrv " PACKAGE_VERSION " - http://pingus.seul.org/~grumbel/xboxdrv/");
-  wrap.para("Copyright © 2008-2011 Ingo Ruhnke <grumbel@gmx.de>");
+  wrap.para("Copyright © 2008-2011 Ingo Ruhnke <grumbel@gmail.com>");
   wrap.para("Licensed under GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>");
   wrap.para("This program comes with ABSOLUTELY NO WARRANTY.");
   wrap.para("This is free software, and you are welcome to redistribute it under certain "
@@ -196,6 +197,7 @@ Xboxdrv::run_main(const Options& opts)
     print_copyright();
   }
 
+  USBSubsystem usb_subsystem;
   XboxdrvMain xboxdrv_main(opts);
   xboxdrv_main.run();
 }
@@ -215,6 +217,7 @@ Xboxdrv::run_daemon(const Options& opts)
 
   if (!opts.detach)
   {
+    USBSubsystem usb_subsystem;
     XboxdrvDaemon daemon(opts);
     daemon.run();
   }
@@ -222,11 +225,11 @@ Xboxdrv::run_daemon(const Options& opts)
   {
     pid_t pid = fork();
 
-    if (pid < 0) 
+    if (pid < 0)
     { // fork error
       raise_exception(std::runtime_error, "failed to fork(): " << strerror(errno));
     }
-    else if (pid > 0) 
+    else if (pid > 0)
     { // parent, just exit
       _exit(EXIT_SUCCESS);
     }
@@ -246,6 +249,7 @@ Xboxdrv::run_daemon(const Options& opts)
         }
         else
         {
+          USBSubsystem usb_subsystem;
           XboxdrvDaemon daemon(opts);
           daemon.run();
         }
@@ -267,24 +271,24 @@ Xboxdrv::run_list_enums(uint32_t enums)
     wrap.para("  ", boost::algorithm::join(evdev_abs_names.get_names(), ", "));
     wrap.newline();
   }
-  
+
   if (enums & Options::LIST_REL)
   {
     wrap.println("EV_REL:");
     wrap.para("  ", boost::algorithm::join(evdev_rel_names.get_names(), ", "));
     wrap.newline();
   }
-  
+
   if (enums & Options::LIST_KEY)
   {
     wrap.println("EV_KEY:");
     wrap.para("  ", boost::algorithm::join(evdev_key_names.get_names(), ", "));
     wrap.newline();
   }
-  
+
   if (enums & Options::LIST_X11KEYSYM)
   {
-    std::vector<std::string> lst;  
+    std::vector<std::string> lst;
     for(X11KeysymEnum::const_iterator i = get_x11keysym_names().begin();
         i != get_x11keysym_names().end(); ++i)
     {
@@ -294,7 +298,7 @@ Xboxdrv::run_list_enums(uint32_t enums)
     wrap.para("  ", boost::algorithm::join(lst, ", "));
     wrap.newline();
   }
-  
+
   if (enums & Options::LIST_AXIS)
   {
     std::vector<std::string> lst;
@@ -306,7 +310,7 @@ Xboxdrv::run_list_enums(uint32_t enums)
     wrap.para("  ", boost::algorithm::join(lst, ", "));
     wrap.newline();
   }
-  
+
   if (enums & Options::LIST_BUTTON)
   {
     std::vector<std::string> lst;
@@ -338,7 +342,7 @@ Xboxdrv::set_scheduling(const Options& opts)
     log_info("enabling realtime priority scheduling");
 
     int policy = SCHED_RR;
-    
+
     struct sched_param param;
     memset(&param, 0, sizeof(struct sched_param));
     param.sched_priority = sched_get_priority_max(policy);
@@ -348,7 +352,7 @@ Xboxdrv::set_scheduling(const Options& opts)
 
     int ret;
     if ((ret = sched_setscheduler(getpid(), policy, &param)) != 0)
-    {          
+    {
       raise_exception(std::runtime_error, "sched_setschedparam() failed: " << strerror(errno));
     }
   }
@@ -357,7 +361,7 @@ Xboxdrv::set_scheduling(const Options& opts)
 int
 Xboxdrv::main(int argc, char** argv)
 {
-  try 
+  try
   {
     Options opts;
 
