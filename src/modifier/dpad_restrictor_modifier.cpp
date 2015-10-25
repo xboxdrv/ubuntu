@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -64,7 +64,7 @@ DpadRestrictorModifier::update(int msec_delta, XboxGenericMsg& msg)
   {
     case kRestrictFourWay:
       if (get_axis(msg, XBOX_AXIS_DPAD_X) && get_axis(msg, XBOX_AXIS_DPAD_Y))
-      { 
+      {
         // a diagonal was pressed, thus we reset the axis that wasn't
         // pressed the last time the dpad was touched
         set_axis(msg, m_last_unpressed_axis, 0);

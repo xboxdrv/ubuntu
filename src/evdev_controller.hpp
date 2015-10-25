@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ private:
   XboxGenericMsg m_msg;
 
 public:
-  EvdevController(const std::string& filename, 
+  EvdevController(const std::string& filename,
                   const EvdevAbsMap&  absmap,
                   const std::map<int, XboxButton>& keyMap,
                   bool grab,
@@ -72,7 +72,7 @@ private:
                         GIOCondition condition);
   static gboolean on_read_data_wrap(GIOChannel* source,
                                     GIOCondition condition,
-                                    gpointer userdata) 
+                                    gpointer userdata)
   {
     return static_cast<EvdevController*>(userdata)->on_read_data(source, condition);
   }

@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ private:
 
 public:
   INIParser(std::istream& in, INIBuilder& builder, const std::string& context);
-  
+
   void run();
 
 private:
@@ -46,14 +46,14 @@ private:
   void expect(char c);
   std::string get_string();
   std::string get_value();
-  std::string get_ident(); 
+  std::string get_ident();
   std::string get_value_or_string();
-  std::string get_ident_or_string(); 
+  std::string get_ident_or_string();
   void newline();
   void eat_rest_of_line();
   std::string get_section();
   void whitespace();
-  int  getchar();  
+  int  getchar();
 
 private:
   INIParser(const INIParser&);

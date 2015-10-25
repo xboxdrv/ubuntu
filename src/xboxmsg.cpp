@@ -1,6 +1,6 @@
-/* 
+/*
 **  Xbox/Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2008 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2008 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ std::string gamepadtype_to_string(const GamepadType& type)
     case GAMEPAD_XBOX360_WIRELESS:
       return "xbox360-wireless";
 
-    case GAMEPAD_XBOX360_PLAY_N_CHARGE: 
+    case GAMEPAD_XBOX360_PLAY_N_CHARGE:
       return "xbox360-playncharge";
 
     case GAMEPAD_XBOX:
@@ -54,7 +54,7 @@ std::string gamepadtype_to_string(const GamepadType& type)
 
     case GAMEPAD_XBOX_MAT:
       return "xbox-mat";
-        
+
     case GAMEPAD_XBOX360_GUITAR:
       return "xbox360-guitar";
 
@@ -66,6 +66,9 @@ std::string gamepadtype_to_string(const GamepadType& type)
 
     case GAMEPAD_SAITEK_P2500:
       return "saitek-p2500";
+
+    case GAMEPAD_SAITEK_P3600:
+      return "saitek-p3600";
 
     case GAMEPAD_PLAYSTATION3_USB:
       return "playstation3-usb";
@@ -92,6 +95,7 @@ std::string gamepadtype_to_macro_string(const GamepadType& type)
     case GAMEPAD_FIRESTORM: return "GAMEPAD_FIRESTORM";
     case GAMEPAD_FIRESTORM_VSB: return "GAMEPAD_FIRESTORM_VSB";
     case GAMEPAD_SAITEK_P2500: return "GAMEPAD_SAITEK_P2500";
+    case GAMEPAD_SAITEK_P3600: return "GAMEPAD_SAITEK_P3600";
     case GAMEPAD_PLAYSTATION3_USB: return "GAMEPAD_PLAYSTATION3_USB";
     case GAMEPAD_GENERIC_USB: return "GAMEPAD_GENERIC_USB";
     default:
@@ -99,7 +103,7 @@ std::string gamepadtype_to_macro_string(const GamepadType& type)
   }
 }
 
-std::ostream& operator<<(std::ostream& out, const GamepadType& type) 
+std::ostream& operator<<(std::ostream& out, const GamepadType& type)
 {
   switch (type)
   {
@@ -109,7 +113,7 @@ std::ostream& operator<<(std::ostream& out, const GamepadType& type)
     case GAMEPAD_XBOX360_WIRELESS:
       return out << "Xbox360 (wireless)";
 
-    case GAMEPAD_XBOX360_PLAY_N_CHARGE: 
+    case GAMEPAD_XBOX360_PLAY_N_CHARGE:
       return out << "Xbox360 Play&Charge";
 
     case GAMEPAD_XBOX:
@@ -117,7 +121,7 @@ std::ostream& operator<<(std::ostream& out, const GamepadType& type)
 
     case GAMEPAD_XBOX_MAT:
       return out << "Xbox Dancepad";
-        
+
     case GAMEPAD_XBOX360_GUITAR:
       return out << "Xbox360 Guitar";
 
@@ -129,6 +133,9 @@ std::ostream& operator<<(std::ostream& out, const GamepadType& type)
 
     case GAMEPAD_SAITEK_P2500:
       return out << "Saitek P2500";
+
+    case GAMEPAD_SAITEK_P3600:
+      return out << "Saitek P3600";
 
     case GAMEPAD_PLAYSTATION3_USB:
       return out << "Playstation 3 USB";
@@ -147,13 +154,13 @@ std::ostream& operator<<(std::ostream& out, const XboxGenericMsg& msg)
   {
     case XBOX_MSG_XBOX:
       return out << msg.xbox;
-        
+
     case XBOX_MSG_XBOX360:
       return out << msg.xbox360;
 
     case XBOX_MSG_PS3USB:
       return out << msg.ps3usb;
-        
+
     default:
       return out << "Error: Unhandled XboxGenericMsg type: " << msg.type;
   }
@@ -193,14 +200,14 @@ std::ostream& operator<<(std::ostream& out, const Playstation3USBMsg& msg)
   return out;
 }
 
-std::ostream& operator<<(std::ostream& out, const Xbox360Msg& msg) 
+std::ostream& operator<<(std::ostream& out, const Xbox360Msg& msg)
 {
-  out << boost::format("X1:%6d Y1:%6d") 
+  out << boost::format("X1:%6d Y1:%6d")
     % int(msg.x1) % int(msg.y1);
 
   out << boost::format("  X2:%6d Y2:%6d")
     % int(msg.x2) % int(msg.y2);
-                          
+
   out << boost::format("  du:%d dd:%d dl:%d dr:%d")
     % int(msg.dpad_up)
     % int(msg.dpad_down)
@@ -230,7 +237,7 @@ std::ostream& operator<<(std::ostream& out, const Xbox360Msg& msg)
   return out;
 }
 
-std::ostream& operator<<(std::ostream& out, const XboxMsg& msg) 
+std::ostream& operator<<(std::ostream& out, const XboxMsg& msg)
 {
   out << boost::format(" X1:%6d Y1:%6d  X2:%6d Y2:%6d "
                        " du:%d dd:%d dl:%d dr:%d "
@@ -261,7 +268,7 @@ std::ostream& operator<<(std::ostream& out, const XboxMsg& msg)
     % int(msg.black)
     % int(msg.white)
 
-    % int(msg.lt) 
+    % int(msg.lt)
     % int(msg.rt);
 
   // out << " Dummy: " << msg.dummy;
@@ -303,7 +310,7 @@ int get_button(XboxGenericMsg& msg, XboxButton button)
         case XBOX_BTN_UNKNOWN: return 0;
       }
       break;
-        
+
     case XBOX_MSG_XBOX:
       switch(button)
       {
@@ -403,7 +410,7 @@ void set_button(XboxGenericMsg& msg, XboxButton button, bool v)
         case XBOX_BTN_UNKNOWN: break;
       }
       break;
-        
+
     case XBOX_MSG_XBOX:
       switch(button)
       {
@@ -651,7 +658,7 @@ float s16_to_float(int16_t value)
 
 /**
    input:  [0, 255]
-   output: [ -1.0f, 1.0f ] 
+   output: [ -1.0f, 1.0f ]
 */
 float u8_to_float(uint8_t value)
 {
@@ -672,7 +679,7 @@ int16_t float_to_s16(float v)
 }
 
 /**
-   input:  [ -1.0f, 1.0f ] 
+   input:  [ -1.0f, 1.0f ]
    output: [0, 255]
 */
 uint8_t float_to_u8(float v)
@@ -860,7 +867,7 @@ void set_axis_float(XboxGenericMsg& msg, XboxAxis axis, float v)
           msg.xbox360.lt = v < 0 ? static_cast<int>(-v*255) : 0;
           msg.xbox360.rt = v > 0 ? static_cast<int>(v*255) : 0;
           break;
-        
+
         case XBOX_AXIS_DPAD_X:
           if (v > 0.5f)
           {
@@ -1296,12 +1303,12 @@ XboxAxis string2axis(const std::string& str_)
     return XBOX_AXIS_X1;
   else if (str == "y1")
     return XBOX_AXIS_Y1;
-  
+
   else if (str == "x2" || str == "whammy")
     return XBOX_AXIS_X2;
   else if (str == "y2" || str == "tilt")
     return XBOX_AXIS_Y2;
-  
+
   else if (str == "lt" || str == "l2")
     return XBOX_AXIS_LT;
   else if (str == "rt" || str == "r2")
@@ -1360,8 +1367,8 @@ std::string axis2string(XboxAxis axis)
 
     case XBOX_AXIS_A:     return "BTN_A";
     case XBOX_AXIS_B:     return "BTN_B";
-    case XBOX_AXIS_X:     return "BTN_X"; 
-    case XBOX_AXIS_Y:     return "BTN_Y"; 
+    case XBOX_AXIS_X:     return "BTN_X";
+    case XBOX_AXIS_Y:     return "BTN_Y";
     case XBOX_AXIS_BLACK: return "Black";
     case XBOX_AXIS_WHITE: return "White";
   }
@@ -1407,7 +1414,7 @@ int get_axis_min(XboxAxis axis)
   {
     case XBOX_AXIS_X1: return -32768;
     case XBOX_AXIS_Y1: return -32768;
-    
+
     case XBOX_AXIS_X2: return -32768;
     case XBOX_AXIS_Y2: return -32768;
 
@@ -1436,7 +1443,7 @@ int get_axis_max(XboxAxis axis)
   {
     case XBOX_AXIS_X1: return 32767;
     case XBOX_AXIS_Y1: return 32767;
-    
+
     case XBOX_AXIS_X2: return 32767;
     case XBOX_AXIS_Y2: return 32767;
 
@@ -1458,5 +1465,5 @@ int get_axis_max(XboxAxis axis)
     default: assert(!"never reached");
   }
 }
-  
+
 /* EOF */

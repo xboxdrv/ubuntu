@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ KeyAxisEventHandler::from_string(const std::string& str)
 {
   typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
   tokenizer tokens(str, boost::char_separator<char>(":", "", boost::keep_empty_tokens));
-  
+
   std::auto_ptr<KeyAxisEventHandler> ev(new KeyAxisEventHandler);
 
   int j = 0;
@@ -58,12 +58,12 @@ KeyAxisEventHandler::from_string(const std::string& str)
           }
         }
         break;
-        
+
       case 2:
         ev->m_threshold = boost::lexical_cast<int>(*i);
         break;
-        
-      default: 
+
+      default:
         throw std::runtime_error("AxisEvent::key_from_string(): to many arguments: " + str);
     }
   }

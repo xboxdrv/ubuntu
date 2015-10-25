@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -35,13 +35,13 @@ public:
   static CycleKeyButtonEventHandler* from_string(const std::string& str, bool wrap_around);
   static CycleKeyButtonEventHandler* from_string_named(const std::string& str, bool wrap_around);
 
-  /** 
+  /**
       Syntax: "{direction}:{press}"
-      
+
       direction: can either be 'forward', 'backward', 'none' or an
       integer, in the case of an integer, the pointer is moved to that key
-      
-      press: a bool, true if a keypress is send, 
+
+      press: a bool, true if a keypress is send,
       false when only the current key should change
   */
   static CycleKeyButtonEventHandler* from_string_ref(const std::string& value);

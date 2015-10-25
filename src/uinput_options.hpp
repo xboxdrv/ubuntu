@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -27,12 +27,12 @@ class UInputOptions
 private:
   ButtonMap m_btn_map;
   AxisMap   m_axis_map;
-  
+
 public:
   /** \addtogroup creation Creation Functions
    ** @{*/
   UInputOptions();
-    
+
   /** Sets a button/axis mapping that is equal to the xpad kernel driver */
   void mimic_xpad();
   void mimic_xpad_wireless();

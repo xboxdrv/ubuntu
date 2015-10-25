@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -26,16 +26,16 @@
 
 class UInput;
 
-/** 
+/**
     A sequence of UIEvents (only key events allowed right now)
-    
+
     FIXME: class name is kind of wrong
  */
 class UIEventSequence
 {
 public:
-  /** 
-      "KEY_LEFTSHIFT+KEY_B" 
+  /**
+      "KEY_LEFTSHIFT+KEY_B"
   */
   static UIEventSequence from_string(const std::string& value);
 

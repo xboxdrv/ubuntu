@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -27,11 +27,11 @@
 class ControllerFactory
 {
 public:
-  static ControllerPtr create(const XPadDevice& dev_type, 
-                              libusb_device* dev, 
+  static ControllerPtr create(const XPadDevice& dev_type,
+                              libusb_device* dev,
                               const Options& opts);
 
-  static std::vector<ControllerPtr> create_multiple(const XPadDevice& dev_type, 
+  static std::vector<ControllerPtr> create_multiple(const XPadDevice& dev_type,
                                                     libusb_device* dev, const Options& opts);
 
 private:

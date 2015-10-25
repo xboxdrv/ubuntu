@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ std::map<std::string, CycleKeySequencePtr> CycleKeyButtonEventHandler::s_lookup_
 
 namespace {
 
-CycleKeyButtonEventHandler::Direction 
+CycleKeyButtonEventHandler::Direction
 direction_from_string(const std::string& value)
 {
   if (value == "forward")
@@ -134,7 +134,7 @@ CycleKeyButtonEventHandler::lookup(const std::string& name)
 }
 
 CycleKeyButtonEventHandler::CycleKeyButtonEventHandler(CycleKeySequencePtr sequence,
-                                                       Direction direction, 
+                                                       Direction direction,
                                                        bool send_press) :
   m_sequence(sequence),
   m_direction(direction),

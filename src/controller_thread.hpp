@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ private:
   GTimer* m_timer;
 
 public:
-  ControllerThread(ControllerPtr controller, std::auto_ptr<MessageProcessor> processor, 
+  ControllerThread(ControllerPtr controller, std::auto_ptr<MessageProcessor> processor,
                    const Options& opts);
   ~ControllerThread();
 

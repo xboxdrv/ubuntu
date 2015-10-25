@@ -1,6 +1,6 @@
 /*
-**  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
+**  Xbox/Xbox360 USB Gamepad Userspace Driver
+**  Copyright (C) 2009 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -16,30 +16,33 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef HEADER_XBOXDRV_UI_ABS_EVENT_COLLECTOR_CPP
-#define HEADER_XBOXDRV_UI_ABS_EVENT_COLLECTOR_CPP
+#ifndef HEADER_SAITEK_P3600_CONTROLLER_HPP
+#define HEADER_SAITEK_P3600_CONTROLLER_HPP
 
-#include "ui_event_collector.hpp"
-#include "ui_abs_event_emitter.hpp"
-
-class UIAbsEventCollector : public UIEventCollector
+#include <libusb.h>
+#include "xboxmsg.hpp"
+#include "usb_controller.hpp"
+
+class SaitekP3600Controller : public USBController
 {
 private:
-  typedef std::vector<UIAbsEventEmitterPtr> Emitters;
-  Emitters m_emitters;
+  int left_rumble;
+  int right_rumble;
 
 public:
-  UIAbsEventCollector(UInput& uinput, uint32_t device_id, int type, int code);
+  SaitekP3600Controller(libusb_device* dev, bool try_detach);
+  ~SaitekP3600Controller();
 
-  UIEventEmitterPtr create_emitter();
-  void send(int value);
-  void sync();
+  void set_rumble_real(uint8_t left, uint8_t right);
+  void set_led_real(uint8_t status);
+
+  bool parse(uint8_t* data, int len, XboxGenericMsg* msg_out);
 
 private:
-  UIAbsEventCollector(const UIAbsEventCollector&);
-  UIAbsEventCollector& operator=(const UIAbsEventCollector&);
+  SaitekP3600Controller(const SaitekP3600Controller&);
+  SaitekP3600Controller& operator=(const SaitekP3600Controller&);
 };
-
+
 #endif
 
 /* EOF */

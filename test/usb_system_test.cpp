@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ libusb_device* get_controller_dev()
   {
     libusb_device* dev = list[dev_it];
     libusb_device_descriptor desc;
-    
+
     int ret = libusb_get_device_descriptor(dev, &desc);
     if (ret != LIBUSB_SUCCESS)
     {
@@ -85,14 +85,14 @@ int main()
   assert(dev);
   Xbox360Controller* controller = new Xbox360Controller(dev,
                                                         false, false, false,
-                                                        false, 
+                                                        false,
                                                         false,
                                                         "",
                                                         "",
                                                         false);
   controller->set_led(2);
   g_main_loop_run(m_gmain);
-  
+
   return 0;
 }
 

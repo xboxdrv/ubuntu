@@ -1,6 +1,6 @@
-/* 
+/*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2008 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2008 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -66,7 +66,7 @@ X11KeysymEnum::X11KeysymEnum() :
   }
 }
 
-void 
+void
 X11KeysymEnum::process_keymap(Display* dpy)
 {
   int min_keycode, max_keycode;
@@ -255,11 +255,11 @@ UIEvent str2abs_event(const std::string& str)
 
 std::string key2str(int v)
 {
-  try 
+  try
   {
     return evdev_key_names[v];
-  } 
-  catch(const std::exception& err) 
+  }
+  catch(const std::exception& err)
   {
     std::ostringstream str;
     str << "KEY_#" << v;
@@ -269,25 +269,25 @@ std::string key2str(int v)
 
 std::string abs2str(int v)
 {
-  try 
+  try
   {
     return evdev_abs_names[v];
-  } 
-  catch(const std::exception& err) 
+  }
+  catch(const std::exception& err)
   {
     std::ostringstream str;
     str << "ABS_#" << v;
-    return str.str();    
+    return str.str();
   }
 }
 
 std::string rel2str(int v)
 {
-  try 
+  try
   {
     return evdev_rel_names[v];
-  } 
-  catch(const std::exception& err) 
+  }
+  catch(const std::exception& err)
   {
     std::ostringstream str;
     str << "REL_#" << v;

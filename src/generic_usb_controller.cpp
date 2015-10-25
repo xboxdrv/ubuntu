@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@
 #include "helper.hpp"
 #include "raise_exception.hpp"
 
-GenericUSBController::GenericUSBController(libusb_device* dev, 
+GenericUSBController::GenericUSBController(libusb_device* dev,
                                            int interface, int endpoint,
                                            bool try_detach) :
   USBController(dev),
@@ -41,7 +41,7 @@ GenericUSBController::GenericUSBController(libusb_device* dev,
     {
       raise_exception(std::runtime_error, "no interfaces available");
     }
-    
+
     if (config->interface[0].num_altsetting == 0)
     {
       raise_exception(std::runtime_error, "no interface descriptors available");

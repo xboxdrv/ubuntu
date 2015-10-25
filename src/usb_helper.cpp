@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2010 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -79,7 +79,7 @@ const char* usb_transfer_strerror(libusb_transfer_status err)
     case LIBUSB_TRANSFER_ERROR: return "LIBUSB_TRANSFER_ERROR";
     case LIBUSB_TRANSFER_TIMED_OUT: return "LIBUSB_TRANSFER_TIMED_OUT";
     case LIBUSB_TRANSFER_CANCELLED: return "LIBUSB_TRANSFER_CANCELLED";
-    case LIBUSB_TRANSFER_STALL: return "LIBUSB_TRANSFER_STALL";	
+    case LIBUSB_TRANSFER_STALL: return "LIBUSB_TRANSFER_STALL";
     case LIBUSB_TRANSFER_NO_DEVICE: return "LIBUSB_TRANSFER_NO_DEVICE";
     case LIBUSB_TRANSFER_OVERFLOW: return "LIBUSB_TRANSFER_OVERFLOW";
     default: return "<unknown libusb transfer error code>";

@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -40,9 +40,9 @@ DpadRotationModifier::from_string(const std::string& value)
   int degree = boost::lexical_cast<int>(value);
   degree /= 45;
   degree %= 8;
-  if (degree < 0) 
+  if (degree < 0)
     degree += 8;
-    
+
   return new DpadRotationModifier(degree);
 }
 
@@ -95,7 +95,7 @@ DpadRotationModifier::update(int msec_delta, XboxGenericMsg& msg)
   }
 
   if (direction != -1)
-  {  
+  {
     direction += m_dpad_rotation;
     direction %= 8;
     if (direction < 0)

@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 #include <boost/tokenizer.hpp>
 #include <sstream>
 
-ButtonMapping 
+ButtonMapping
 ButtonMapping::from_string(const std::string& lhs, const std::string& rhs)
 {
   ButtonMapping mapping;
@@ -57,7 +57,7 @@ ButtonmapModifier::ButtonmapModifier() :
   m_buttonmap()
 {
 }
-  
+
 void
 ButtonmapModifier::update(int msec_delta, XboxGenericMsg& msg)
 {
@@ -88,12 +88,12 @@ ButtonmapModifier::update(int msec_delta, XboxGenericMsg& msg)
     for(std::vector<ButtonFilterPtr>::iterator j = i->filters.begin(); j != i->filters.end(); ++j)
     {
       value = (*j)->filter(value);
-    }    
+    }
 
     set_button(newmsg, i->rhs, value || get_button(newmsg, i->rhs));
   }
 
-  msg = newmsg;  
+  msg = newmsg;
 }
 
 void

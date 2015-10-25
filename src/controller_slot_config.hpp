@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -34,12 +34,12 @@ class ControllerSlotConfig
 {
 public:
   /** Creates a ControllerSlotConfig from the Options object and connects it to UInput */
-  static ControllerSlotConfigPtr create(UInput& uinput, int slot, bool extra_devices, 
+  static ControllerSlotConfigPtr create(UInput& uinput, int slot, bool extra_devices,
                                        const ControllerSlotOptions& opts);
 
 private:
   static void create_modifier(const ControllerOptions& options, std::vector<ModifierPtr>* modifier);
-  
+
 private:
   std::vector<ControllerConfigPtr> m_config;
   int m_current_config;

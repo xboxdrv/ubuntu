@@ -1,6 +1,6 @@
 /*
 **  Xbox360 USB Gamepad Userspace Driver
-**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmx.de>
+**  Copyright (C) 2011 Ingo Ruhnke <grumbel@gmail.com>
 **
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -57,7 +57,7 @@ USBGSource::USBGSource() :
   free(fds);
 
   // register pollfd callbacks
-  libusb_set_pollfd_notifiers(NULL, 
+  libusb_set_pollfd_notifiers(NULL,
                               &USBGSource::on_usb_pollfd_added_wrap,
                               &USBGSource::on_usb_pollfd_removed_wrap,
                               this);
@@ -67,7 +67,7 @@ USBGSource::~USBGSource()
 {
   // get rid of the callbacks as they will be triggered by libusb_exit()
   libusb_set_pollfd_notifiers(NULL, NULL, NULL, NULL);
-  
+
   // get rid of the GSource created in the constructor
   g_source_unref(reinterpret_cast<GSource*>(m_source));
 }
@@ -106,7 +106,7 @@ USBGSource::on_usb_pollfd_removed(int fd)
       break;
     }
   }
-  
+
   assert(it != m_pollfds.end());
 
   // FIXME: here is a bug
