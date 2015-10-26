@@ -1,3 +1,9 @@
+xboxdrv (0.8.6-0ubuntu2) wily; urgency=medium
+
+  * Fixed doc install
+
+ -- Ingo Ruhnke <grumbel@gmail.com>  Mon, 26 Oct 2015 03:49:24 +0100
+
 xboxdrv (0.8.6-0ubuntu1) wily; urgency=medium
 
   * Updated to 0.8.6
